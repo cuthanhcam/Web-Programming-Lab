@@ -3,8 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name = "viewport" content = "width=device-width, initial-scale=1.0">
-    <title>eCommerce Websites</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eCommerce Website</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,111 +12,142 @@
 </head>
 
 <body>
-    <header>
-        <h1>E-Commerce Websites</h1>
+    <!-- Header and Navigation -->
+    <header class="header-nav">
+        <h1>E-Commerce</h1>
+        <nav>w
+            <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+            <ul class="nav-links">
+                <li><a href="#">Home</a></li>
+                <li><a href="#">Products</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="#">Contact</a></li>
+            </ul>
+        </nav>
     </header>
 
-    <!-- Menu điều hướng -->
-     <nav>
-        <ul>
-            <li><a href="#">Home</a></li>
-            <li><a href="#">Products</a></li>
-            <li><a href="#">About</a></li>
-            <li><a href="#">Contact</a></li>
-        </ul>
-     </nav>
-     <div class="product-list">
-            <!-- Hiển thị duy nhất một sản phẩm trên mỗi hàng -->
-            <div class="product-card">
+
+    <div class="product-list">
+        <!-- Hiển thị duy nhất một sản phẩm trên mỗi hàng -->
+        <div class="product-card">
+            <a href="product-details.html?product=1">
                 <img src="/assets/images/product1.jpg" alt="">
                 <h2>Product 1</h2>
-                <p>Decription of product 1</p>
-                <p>Price: 100$</p>
-                <button class="button button4"> Buy now</button>
-            </div>
+            </a>
+            <p>Description of product 1</p>
+            <p>Price: 100$</p>
+            <button class="button button4">Buy now</button>
+        </div>
 
-            <div class="product-card">
+        <div class="product-card">
+            <a href="product-details.html?product=2">
                 <img src="/assets/images/product2.jpg" alt="">
                 <h2>Product 2</h2>
-                <p>Description of product 2</p>
-                <p>Price: 150$</p>
-                <button class="button button4">Buy now</button>
-            </div>
-            
-            <div class="product-card">
+            </a>
+            <p>Description of product 2</p>
+            <p>Price: 150$</p>
+            <button class="button button4">Buy now</button>
+        </div>
+
+        <div class="product-card">
+            <a href="product-details.html?product=3">
                 <img src="/assets/images/product3.jpg" alt="">
                 <h2>Product 3</h2>
-                <p>Description of product 3</p>
-                <p>Price: 200$</p>
-                <button class="button button4">Buy now</button>
-            </div>
+            </a>
+            <p>Description of product 3</p>
+            <p>Price: 200$</p>
+            <button class="button button4">Buy now</button>
+        </div>
 
-            <div class="product-card">
+        <div class="product-card">
+            <a href="product-details.html?product=4">
                 <img src="/assets/images/product4.jpg" alt="">
                 <h2>Product 4</h2>
-                <p>Description of product 4</p>
-                <p>Price: 250$</p>
-                <button class="button button4">Buy now</button>
-            </div>
+            </a>
+            <p>Description of product 4</p>
+            <p>Price: 250$</p>
+            <button class="button button4">Buy now</button>
+        </div>
 
-            <div class="product-card">
+        <div class="product-card">
+            <a href="product-details.html?product=5">
                 <img src="/assets/images/product5.jpg" alt="">
                 <h2>Product 5</h2>
-                <p>Description of product 5</p>
-                <p>Price: 300$</p>
-                <button class="button button4">Buy now</button>
-            </div>
+            </a>
+            <p>Description of product 5</p>
+            <p>Price: 300$</p>
+            <button class="button button4">Buy now</button>
+        </div>
 
-            <div class="product-card">
+        <div class="product-card">
+            <a href="product-details.html?product=6">
                 <img src="/assets/images/product6.jpg" alt="">
                 <h2>Product 6</h2>
-                <p>Description of product 6</p>
-                <p>Price: 350$</p>
-                <button class="button button4">Buy now</button>
-            </div>
+            </a>
+            <p>Description of product 6</p>
+            <p>Price: 350$</p>
+            <button class="button button4">Buy now</button>
+        </div>
 
-            <div class="product-card">
+        <div class="product-card">
+            <a href="product-details.html?product=7">
                 <img src="/assets/images/product7.jpg" alt="">
                 <h2>Product 7</h2>
-                <p>Description of product 7</p>
-                <p>Price: 400$</p>
-                <button class="button button4">Buy now</button>
-            </div>
+            </a>
+            <p>Description of product 7</p>
+            <p>Price: 400$</p>
+            <button class="button button4">Buy now</button>
+        </div>
 
-            <div class="product-card">
+        <div class="product-card">
+            <a href="product-details.html?product=8">
                 <img src="/assets/images/product8.jpg" alt="">
                 <h2>Product 8</h2>
-                <p>Description of product 8</p>
-                <p>Price: 450$</p>
-                <button class="button button4">Buy now</button>
-            </div>
-     </div>
+            </a>
+            <p>Description of product 8</p>
+            <p>Price: 450$</p>
+            <button class="button button4">Buy now</button>
+        </div>
 
-     <!-- Sidebar -->
-      <div class="sidebar">
-            <div class="social-icons">
-                <a href="https://www.facebook.com/cuthanhcam" class="social-link"><i class="fab fa-facebook"></i> Facebook</a>
-                <a href="https://github.com/cuthanhcam" class="social-link"><i class="fab fa-github"></i> Github</a>
-                <a href="https://www.instagram.com/tc.jrk" class="social-link"><i class="fab fa-instagram"></i> Instagram</a>
-                <a href="https://www.linkedin.com/in/cuthanhcam/" class="social-link"><i class="fab fa-linkedin"></i> LinkedIn</a>
-            </div>
-      </div>
+        <div class="product-card">
+            <a href="product-details.html?product=9">
+                <img src="/assets/images/product9.jpg" alt="">
+                <h2>Product 9</h2>
+            </a>
+            <p>Description of product 9</p>
+            <p>Price: 500$</p>
+            <button class="button button4">Buy now</button>
+        </div>
+    </div>
 
-      <!-- Footer -->
-      <div class="footer">
-            <div class="footer-item">
-                <h3>Column 1</h3>
-                <p>Content of column 1</p>
-            </div>
-            <div class="footer-item">
-                <h3>Column 2</h3>
-                <p>Content of column 2</p>
-            </div>
-            <div class="footer-item">
-                <h3>Column 3</h3>
-                <p>Content of column 3</p>
-            </div>
-      </div>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="social-icons">
+            <a href="https://www.facebook.com/cuthanhcam" class="social-link"><i class="fab fa-facebook"></i>
+                Facebook</a>
+            <a href="https://github.com/cuthanhcam" class="social-link"><i class="fab fa-github"></i> Github</a>
+            <a href="https://www.instagram.com/tc.jrk" class="social-link"><i class="fab fa-instagram"></i>
+                Instagram</a>
+            <a href="https://www.linkedin.com/in/cuthanhcam/" class="social-link"><i class="fab fa-linkedin"></i>
+                LinkedIn</a>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="footer-item">
+            <h3>Column 1</h3>
+            <p>Content of column 1</p>
+        </div>
+        <div class="footer-item">
+            <h3>Column 2</h3>
+            <p>Content of column 2</p>
+        </div>
+        <div class="footer-item">
+            <h3>Column 3</h3>
+            <p>Content of column 3</p>
+        </div>
+    </div>
 </body>
 
 </html>
