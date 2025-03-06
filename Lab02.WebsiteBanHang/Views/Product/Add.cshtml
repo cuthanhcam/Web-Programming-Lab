@@ -1,0 +1,41 @@
+@model Lab02.WebsiteBanHang.Models.Product
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Add Product";
+}
+
+<h1>Add Product</h1>
+
+<form asp-action="Add" enctype="multipart/form-data">
+    <div class="validation-summary" asp-validation-summary="All"></div>
+    <div class="form-group">
+        <label asp-for="Name"></label>
+        <input asp-for="Name" />
+        <span class="text-danger" asp-validation-for="Name"></span>
+    </div>
+    <div class="form-group">
+        <label asp-for="Price"></label>
+        <input asp-for="Price" />
+        <span class="text-danger" asp-validation-for="Price"></span>
+    </div>
+    <div class="form-group">
+        <label asp-for="Description"></label>
+        <textarea asp-for="Description"></textarea>
+        <span class="text-danger" asp-validation-for="Description"></span>
+    </div>
+    <div class="form-group">
+        <label asp-for="CategoryId">Category</label>
+        <select asp-for="CategoryId" asp-items="ViewBag.Categories"></select>
+    </div>
+    <div class="form-group">
+        <label asp-for="ImageUrl">Main Image</label>
+        <input type="file" asp-for="ImageUrl" name="imageUrl" />
+        <span class="text-danger" asp-validation-for="ImageUrl"></span>
+    </div>
+    <div class="form-group">
+        <label asp-for="ImageUrls">Additional Images</label>
+        <input type="file" asp-for="ImageUrls" name="imageUrls" multiple />
+        <span class="text-danger" asp-validation-for="ImageUrls"></span>
+    </div>
+    <button type="submit" class="button button-primary">Add</button>
+</form>

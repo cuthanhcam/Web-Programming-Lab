@@ -1,0 +1,20 @@
+@model Lab02.WebsiteBanHang.Models.Product
+<h2>Product Details</h2>
+<div>
+    <h4>Name: @Model.Name</h4>
+    <h4>Price: @Model.Price</h4>
+    <h4>Description: @Model.Description</h4>
+    @if (!string.IsNullOrEmpty(Model.ImageUrl))
+    {
+        <img src="@Model.ImageUrl" alt="Main Image" style="max-width: 200px;" />
+    }
+    @if (Model.ImageUrls != null && Model.ImageUrls.Count > 0)
+    {
+        <h4>Additional Images:</h4>
+        foreach (var imageUrl in Model.ImageUrls)
+        {
+            <img src="@imageUrl" alt="Additional Image" style="max-width: 200px;" />
+        }
+    }
+</div>
+<a asp-action="Index" class="button button-secondary">Back to List</a>
