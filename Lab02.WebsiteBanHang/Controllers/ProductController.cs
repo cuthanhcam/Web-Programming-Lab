@@ -20,24 +20,21 @@ namespace Lab02.WebsiteBanHang.Controllers
             _categoryRepository = categoryRepository;
         }
 
+        public IActionResult Index()
+        {
+            var products = _productRepository.GetAll();
+            return View(products);
+        }
+
         public IActionResult Add()
         {
             var categories = _categoryRepository.GetAllCategories();
             ViewBag.Categories = new SelectList(categories, "Id", "Name");
             return View();
         }
+
         [HttpPost]
-        public IActionResult Add(Product product)
-        {
-            if (ModelState.IsValid)
-            {
-                _productRepository.Add(product);
-                return RedirectToAction("Index");
-            }
-            return View(product);
-        }
-        [HttpPost]
-        public async Task<IActionResult> Add(Product product, IFormFile imageUrl, List<IFormFile> imageUrls)
+        public async Task<IActionResult> Add(Product product, IFormFile? imageUrl, List<IFormFile>? imageUrls)
         {
             if (ModelState.IsValid)
             {
@@ -45,34 +42,20 @@ namespace Lab02.WebsiteBanHang.Controllers
                 {
                     product.ImageUrl = await SaveImage(imageUrl);
                 }
-                if (imageUrls != null)
+
+                if (imageUrls != null && imageUrls.Count > 0)
                 {
                     product.ImageUrls = new List<string>();
                     foreach (var file in imageUrls)
-                    {   
+                    {
                         product.ImageUrls.Add(await SaveImage(file));
                     }
                 }
+
                 _productRepository.Add(product);
                 return RedirectToAction("Index");
             }
             return View(product);
-        }
-
-        private async Task<string> SaveImage(IFormFile image)
-        {
-            var savePath = Path.Combine("wwwroot/images", image.FileName);
-            using (var fileStream = new FileStream(savePath, FileMode.Create))
-            {
-                await image.CopyToAsync(fileStream);
-            }
-            return "/images/" + image.FileName;
-        }
-
-        public IActionResult Index()
-        {
-            var products = _productRepository.GetAll();
-            return View(products);
         }
 
         public IActionResult Display(int id)
@@ -92,15 +75,28 @@ namespace Lab02.WebsiteBanHang.Controllers
             {
                 return NotFound();
             }
-            // var categories = _categoryRepository.GetAllCategories();
-            // ViewBag.Categories = new SelectList(categories, "Id", "Name");
             return View(product);
         }
+
         [HttpPost]
-        public IActionResult Update(Product product)
+        public async Task<IActionResult> Update(Product product, IFormFile? imageUrl, List<IFormFile>? imageUrls)
         {
             if (ModelState.IsValid)
             {
+                if (imageUrl != null)
+                {
+                    product.ImageUrl = await SaveImage(imageUrl);
+                }
+
+                if (imageUrls != null && imageUrls.Count > 0)
+                {
+                    product.ImageUrls = new List<string>();
+                    foreach (var file in imageUrls)
+                    {
+                        product.ImageUrls.Add(await SaveImage(file));
+                    }
+                }
+
                 _productRepository.Update(product);
                 return RedirectToAction("Index");
             }
@@ -131,6 +127,23 @@ namespace Lab02.WebsiteBanHang.Controllers
             }
 
             return RedirectToAction("Index");
+        }
+
+        private async Task<string> SaveImage(IFormFile image)
+        {
+            var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/images");
+            if (!Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+
+            var filePath = Path.Combine(folderPath, image.FileName);
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await image.CopyToAsync(stream);
+            }
+
+            return "/images/" + image.FileName;
         }
     }
 }

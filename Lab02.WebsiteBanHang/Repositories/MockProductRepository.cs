@@ -23,7 +23,9 @@ namespace Lab02.WebsiteBanHang.Repositories
         }
         public void Add(Product product)
         {
-            product.Id = _products.Max(p => p.Id) + 1;
+            // product.Id = _products.Max(p => p.Id) + 1;
+            // _products.Add(product);
+            product.Id = _products.Any() ? _products.Max(p => p.Id) + 1 : 1;
             _products.Add(product);
         }
 
@@ -51,10 +53,20 @@ namespace Lab02.WebsiteBanHang.Repositories
 
         public void Update(Product product)
         {
-            var index = _products.FindIndex(p => p.Id == product.Id);
-            if (index != -1)
+            // var index = _products.FindIndex(p => p.Id == product.Id);
+            // if (index != -1)
+            // {
+            //     _products[index] = product;
+            // }
+            var existingProduct = GetById(product.Id);
+            if (existingProduct != null)
             {
-                _products[index] = product;
+                existingProduct.Name = product.Name;
+                existingProduct.Price = product.Price;
+                existingProduct.Description = product.Description;
+                existingProduct.CategoryId = product.CategoryId;
+                existingProduct.ImageUrl = product.ImageUrl;
+                existingProduct.ImageUrls = product.ImageUrls;
             }
         }
     }
