@@ -1,28 +1,33 @@
-﻿a.navbar-brand {
+﻿/* Tùy chỉnh tổng thể */
+a.navbar-brand {
   white-space: normal;
   text-align: center;
   word-break: break-all;
 }
 
 a {
-  color: #0077cc;
+  color: #00ced1; /* Cyan đậm cho các link */
+}
+
+a:hover {
+  color: #00b7eb; /* Cyan sáng hơn khi hover */
 }
 
 .btn-primary {
   color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+  background-color: #00ced1; /* Cyan đậm */
+  border-color: #009b9b;
 }
 
 .btn-primary:hover {
-  background-color: #155a9e;
-  border-color: #134d87;
+  background-color: #00b7eb;
+  border-color: #008b8b;
 }
 
 .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
   color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+  background-color: #00ced1;
+  border-color: #009b9b;
 }
 
 .border-top {
@@ -40,10 +45,4 @@ a {
 button.accept-policy {
   font-size: 1rem;
   line-height: inherit;
-}
-
-.footer {
-  background-color: #f8f9fa;
-  font-size: 0.9rem;
-  padding: 20px 0;
 }
