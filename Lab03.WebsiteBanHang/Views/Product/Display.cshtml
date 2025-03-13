@@ -1,0 +1,30 @@
+@model Lab03.WebsiteBanHang.Models.Product
+@{
+    ViewData["Title"] = "Product Details";
+}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">@Model.Name</h2>
+    <div class="card p-4 shadow-sm">
+        <div class="row">
+            <div class="col-md-6 text-center">
+                @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                {
+                    <img src="@Model.ImageUrl" alt="@Model.Name" class="img-fluid rounded" style="max-width: 300px;" />
+                }
+                else
+                {
+                    <p class="text-muted">No image available</p>
+                }
+            </div>
+            <div class="col-md-6">
+                <h3>Price: $@Model.Price.ToString("F2")</h3>
+                <p><strong>Description:</strong> @(Model.Description ?? "No description")</p>
+                <p><strong>Category:</strong> @(Model.Category?.Name ?? "N/A")</p>
+            </div>
+        </div>
+        <div class="text-center mt-4">
+            <a asp-action="Index" class="btn btn-primary"><i class="bi bi-arrow-left"></i> Back to List</a>
+        </div>
+    </div>
+</div>
