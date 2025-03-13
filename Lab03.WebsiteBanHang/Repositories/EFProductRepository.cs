@@ -1,20 +1,19 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Lab03.WebsiteBanHang.Data;
 using Lab03.WebsiteBanHang.Interfaces;
 using Lab03.WebsiteBanHang.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Lab03.WebsiteBanHang.Repositories
 {
     public class EFProductRepository : IProductRepository
     {
         private readonly ApplicationDbContext _context;
+
         public EFProductRepository(ApplicationDbContext context)
         {
-            _context = context;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
         public async Task<IEnumerable<Product>> GetAllAsync()
@@ -41,16 +40,38 @@ namespace Lab03.WebsiteBanHang.Repositories
 
         public async Task UpdateAsync(Product product)
         {
-            _context.Products.Update(product);
-            await _context.SaveChangesAsync();
+            var existingProduct = await _context.Products
+                .Include(p => p.Images)
+                .FirstOrDefaultAsync(p => p.Id == product.Id);
+            if (existingProduct != null)
+            {
+                existingProduct.Name = product.Name;
+                existingProduct.Price = product.Price;
+                existingProduct.Description = product.Description;
+                existingProduct.CategoryId = product.CategoryId;
+                existingProduct.ImageUrl = product.ImageUrl;
+
+                // Nếu có hình ảnh mới, thêm vào danh sách tạm
+                if (product.Images != null && product.Images.Any())
+                {
+                    var newImages = product.Images.Where(i => i.Id == 0).ToList(); // Lấy các ảnh mới (Id = 0)
+                    if (newImages.Any())
+                    {
+                        existingProduct.Images ??= new List<ProductImage>();
+                        existingProduct.Images.AddRange(newImages);
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+            }
         }
 
         public async Task DeleteAsync(int id)
         {
-            var products = await _context.Products.FindAsync(id);
-            if (products != null)
+            var product = await _context.Products.FindAsync(id);
+            if (product != null)
             {
-                _context.Products.Remove(products);
+                _context.Products.Remove(product);
                 await _context.SaveChangesAsync();
             }
         }

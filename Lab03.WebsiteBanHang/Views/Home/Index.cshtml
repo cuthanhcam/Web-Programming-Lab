@@ -10,7 +10,11 @@
         {
             <div class="col-md-4 mb-4">
                 <div class="card shadow-sm h-100">
-                    @if (!string.IsNullOrEmpty(product.ImageUrl))
+                    @if (product.Images != null && product.Images.Any())
+                    {
+                        <img src="@product.Images.First().Url" class="card-img-top" alt="@product.Name" style="height: 200px; object-fit: cover;" />
+                    }
+                    else if (!string.IsNullOrEmpty(product.ImageUrl))
                     {
                         <img src="@product.ImageUrl" class="card-img-top" alt="@product.Name" style="height: 200px; object-fit: cover;" />
                     }

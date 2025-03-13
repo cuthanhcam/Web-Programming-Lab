@@ -11,9 +11,25 @@
             <h4 class="fw-bold">@Model.Name</h4>
             <p>Price: $@Model.Price.ToString("F2")</p>
             <p>Category: @(Model.Category?.Name ?? "N/A")</p>
-            @if (!string.IsNullOrEmpty(Model.ImageUrl))
+            @if (!string.IsNullOrEmpty(Model.ImageUrl) || (Model.Images != null && Model.Images.Any()))
             {
-                <img src="@Model.ImageUrl" alt="@Model.Name" class="img-fluid rounded mb-3" style="max-width: 200px;" />
+                <div class="d-flex flex-wrap gap-2 justify-content-center mb-3">
+                    @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                    {
+                        <img src="@Model.ImageUrl" alt="@Model.Name" class="img-fluid rounded" style="max-width: 200px;" />
+                    }
+                    @if (Model.Images != null && Model.Images.Any())
+                    {
+                        @foreach (var image in Model.Images)
+                        {
+                            <img src="@image.Url" alt="@Model.Name" class="img-fluid rounded" style="max-width: 200px;" />
+                        }
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">No images available.</p>
             }
         </div>
         <form asp-action="Delete" method="post" class="d-flex justify-content-center gap-2 mt-3">

@@ -5,8 +5,7 @@
 
 <div class="container mt-5">
     <h2 class="text-center mb-4">Update Product</h2>
-    <form asp-action="Update" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data"
-        class="card p-4 shadow-sm">
+    <form asp-action="Update" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
         <input type="hidden" asp-for="Id" />
         <div class="form-group mb-3">
             <label asp-for="Name" class="form-label fw-bold">Name</label>
@@ -40,13 +39,23 @@
             <span asp-validation-for="CategoryId" class="text-danger"></span>
         </div>
         <div class="form-group mb-3">
-            <label class="form-label fw-bold">Current Image</label>
-            @if (!string.IsNullOrEmpty(Model.ImageUrl))
+            <label class="form-label fw-bold">Current Images</label>
+            @if (Model.Images != null && Model.Images.Any())
             {
-                <img src="@Model.ImageUrl" alt="@Model.Name" class="img-fluid rounded mb-2" style="max-width: 200px;" />
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    @foreach (var image in Model.Images)
+                    {
+                        <img src="@image.Url" alt="@Model.Name" class="img-fluid rounded" style="max-width: 100px;" />
+                    }
+                </div>
             }
-            <label class="form-label fw-bold">Upload New Image</label>
-            <input type="file" name="imageUrl" class="form-control" accept=".jpg,.jpeg,.png" />
+            else
+            {
+                <p class="text-muted">No images available.</p>
+            }
+            <label class="form-label fw-bold">Upload New Images</label>
+            <input type="file" name="images" class="form-control" accept=".jpg,.jpeg,.png" multiple />
+            <small class="text-muted">You can upload additional images (jpg, jpeg, png).</small>
         </div>
         <div class="d-flex justify-content-end gap-2">
             <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Update</button>

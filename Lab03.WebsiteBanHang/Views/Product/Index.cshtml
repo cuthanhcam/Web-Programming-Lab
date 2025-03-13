@@ -24,7 +24,11 @@
                 {
                     <tr>
                         <td>
-                            @if (!string.IsNullOrEmpty(product.ImageUrl))
+                            @if (product.Images != null && product.Images.Any())
+                            {
+                                <img src="@product.Images.First().Url" alt="@product.Name" class="img-fluid rounded" style="max-width: 100px;" />
+                            }
+                            else if (!string.IsNullOrEmpty(product.ImageUrl))
                             {
                                 <img src="@product.ImageUrl" alt="@product.Name" class="img-fluid rounded" style="max-width: 100px;" />
                             }
