@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Lab04.WebsiteBanHang.Models;
-using Lab04.WebsiteBanHang.Data;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Collections.Generic;
@@ -24,6 +23,7 @@ namespace Lab04.WebsiteBanHang.Controllers
             _roleManager = roleManager;
         }
 
+        // GET: User/Index
         public async Task<IActionResult> Index()
         {
             var users = await _userManager.Users.ToListAsync();
@@ -45,17 +45,28 @@ namespace Lab04.WebsiteBanHang.Controllers
             return View(userRoles);
         }
 
+        // GET: User/Create
         [HttpGet]
         public IActionResult Create()
         {
             return View();
         }
 
+        // POST: User/Create
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(RegisterViewModel model)
         {
             if (ModelState.IsValid)
             {
+                // Kiểm tra email đã tồn tại
+                var existingUser = await _userManager.FindByEmailAsync(model.Email);
+                if (existingUser != null)
+                {
+                    ModelState.AddModelError("Email", "Email đã được sử dụng.");
+                    return View(model);
+                }
+
                 var user = new ApplicationUser
                 {
                     UserName = model.Email,
@@ -69,8 +80,8 @@ namespace Lab04.WebsiteBanHang.Controllers
 
                 if (result.Succeeded)
                 {
-                    // Mặc định gán role Customer
                     await _userManager.AddToRoleAsync(user, SD.Role_Customer);
+                    TempData["SuccessMessage"] = "Thêm người dùng thành công!";
                     return RedirectToAction(nameof(Index));
                 }
 
@@ -82,18 +93,13 @@ namespace Lab04.WebsiteBanHang.Controllers
             return View(model);
         }
 
+        // GET: User/Edit/{id}
         public async Task<IActionResult> Edit(string id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var user = await _userManager.FindByIdAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
+            if (user == null) return NotFound();
 
             var userRoles = await _userManager.GetRolesAsync(user);
             var allRoles = await _roleManager.Roles.ToListAsync();
@@ -104,6 +110,8 @@ namespace Lab04.WebsiteBanHang.Controllers
                 UserName = user.UserName,
                 FullName = user.FullName,
                 Email = user.Email,
+                Address = user.Address,
+                Age = user.Age,
                 Roles = userRoles.ToList(),
                 AvailableRoles = allRoles.Select(r => r.Name).ToList()
             };
@@ -111,6 +119,7 @@ namespace Lab04.WebsiteBanHang.Controllers
             return View(model);
         }
 
+        // POST: User/Edit/{id}
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(UserRoleViewModel model)
@@ -118,36 +127,68 @@ namespace Lab04.WebsiteBanHang.Controllers
             if (ModelState.IsValid)
             {
                 var user = await _userManager.FindByIdAsync(model.UserId);
-                if (user == null)
+                if (user == null) return NotFound();
+
+                // Cập nhật thông tin người dùng
+                user.FullName = model.FullName;
+                user.Email = model.Email;
+                user.UserName = model.Email; // Đảm bảo UserName đồng bộ với Email
+                user.Address = model.Address;
+                user.Age = model.Age;
+
+                var updateResult = await _userManager.UpdateAsync(user);
+                if (!updateResult.Succeeded)
                 {
-                    return NotFound();
+                    foreach (var error in updateResult.Errors)
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
+                    return View(model);
                 }
 
+                // Cập nhật vai trò
                 var currentRoles = await _userManager.GetRolesAsync(user);
                 await _userManager.RemoveFromRolesAsync(user, currentRoles);
                 await _userManager.AddToRolesAsync(user, model.Roles);
 
-                TempData["SuccessMessage"] = "Cập nhật quyền thành công!";
+                TempData["SuccessMessage"] = "Cập nhật thông tin và quyền thành công!";
                 return RedirectToAction(nameof(Index));
             }
+
+            // Nếu ModelState không hợp lệ, load lại danh sách vai trò
+            var allRoles = await _roleManager.Roles.ToListAsync();
+            model.AvailableRoles = allRoles.Select(r => r.Name).ToList();
+            return View(model);
+        }
+
+        // GET: User/Delete/{id}
+        public async Task<IActionResult> Delete(string id)
+        {
+            if (id == null) return NotFound();
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return NotFound();
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            var model = new UserRoleViewModel
+            {
+                UserId = user.Id,
+                UserName = user.UserName,
+                FullName = user.FullName,
+                Email = user.Email,
+                Roles = userRoles.ToList()
+            };
 
             return View(model);
         }
 
-        [HttpPost]
+        // POST: User/Delete/{id}
+        [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Delete(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
             var user = await _userManager.FindByIdAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
+            if (user == null) return NotFound();
 
             var result = await _userManager.DeleteAsync(user);
             if (result.Succeeded)
@@ -162,4 +203,4 @@ namespace Lab04.WebsiteBanHang.Controllers
             return RedirectToAction(nameof(Index));
         }
     }
-} 
+}

@@ -1,5 +1,8 @@
 using Lab04.WebsiteBanHang.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Threading.Tasks;
 
 namespace Lab04.WebsiteBanHang.Data
 {
@@ -11,7 +14,7 @@ namespace Lab04.WebsiteBanHang.Data
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
             // Seed Roles
-            string[] roles = { SD.Role_Admin, SD.Role_Company, SD.Role_Customer, SD.Role_Employee };
+            string[] roles = { SD.Role_Admin, SD.Role_Company, SD.Role_Employee, SD.Role_Customer };
             foreach (var role in roles)
             {
                 if (!await roleManager.RoleExistsAsync(role))
@@ -21,15 +24,18 @@ namespace Lab04.WebsiteBanHang.Data
             }
 
             // Seed Admin User
-            var adminUser = await userManager.FindByEmailAsync("admin@example.com");
+            var adminEmail = "admin@example.com";
+            var adminUser = await userManager.FindByEmailAsync(adminEmail);
             if (adminUser == null)
             {
                 adminUser = new ApplicationUser
                 {
-                    UserName = "admin@example.com",
-                    Email = "admin@example.com",
+                    UserName = adminEmail, // UserName = Email
+                    Email = adminEmail,
                     FullName = "Admin User",
-                    EmailConfirmed = true
+                    Address = "123 Admin Street, Admin City", // Thêm Address vì là bắt buộc trong model
+                    Age = 30, // Age có thể null, nhưng gán giá trị mẫu
+                    EmailConfirmed = true // Để không cần xác nhận email
                 };
 
                 var result = await userManager.CreateAsync(adminUser, "Admin123!");
@@ -37,7 +43,81 @@ namespace Lab04.WebsiteBanHang.Data
                 {
                     await userManager.AddToRoleAsync(adminUser, SD.Role_Admin);
                 }
+                else
+                {
+                    // Log lỗi nếu cần
+                    foreach (var error in result.Errors)
+                    {
+                        Console.WriteLine($"Error creating admin user: {error.Description}");
+                    }
+                }
+            }
+
+            // Seed Company User (Tùy chọn)
+            var companyEmail = "company@example.com";
+            var companyUser = await userManager.FindByEmailAsync(companyEmail);
+            if (companyUser == null)
+            {
+                companyUser = new ApplicationUser
+                {
+                    UserName = companyEmail,
+                    Email = companyEmail,
+                    FullName = "Company User",
+                    Address = "456 Company Road, Business City",
+                    Age = 35,
+                    EmailConfirmed = true
+                };
+
+                var result = await userManager.CreateAsync(companyUser, "Company123!");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(companyUser, SD.Role_Company);
+                }
+            }
+
+            // Seed Employee User (Tùy chọn)
+            var employeeEmail = "employee@example.com";
+            var employeeUser = await userManager.FindByEmailAsync(employeeEmail);
+            if (employeeUser == null)
+            {
+                employeeUser = new ApplicationUser
+                {
+                    UserName = employeeEmail,
+                    Email = employeeEmail,
+                    FullName = "Employee User",
+                    Address = "789 Employee Lane, Work Town",
+                    Age = 25,
+                    EmailConfirmed = true
+                };
+
+                var result = await userManager.CreateAsync(employeeUser, "Employee123!");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(employeeUser, SD.Role_Employee);
+                }
+            }
+
+            // Seed Customer User (Tùy chọn)
+            var customerEmail = "customer@example.com";
+            var customerUser = await userManager.FindByEmailAsync(customerEmail);
+            if (customerUser == null)
+            {
+                customerUser = new ApplicationUser
+                {
+                    UserName = customerEmail,
+                    Email = customerEmail,
+                    FullName = "Customer User",
+                    Address = "101 Customer Avenue, Shop City",
+                    Age = null, // Age có thể null
+                    EmailConfirmed = true
+                };
+
+                var result = await userManager.CreateAsync(customerUser, "Customer123!");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(customerUser, SD.Role_Customer);
+                }
             }
         }
     }
-} 
+}

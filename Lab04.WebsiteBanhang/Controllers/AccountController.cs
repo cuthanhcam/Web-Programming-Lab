@@ -6,7 +6,6 @@ using Lab04.WebsiteBanHang.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using Lab04.WebsiteBanHang.Data;
 
 namespace Lab04.WebsiteBanHang.Controllers
 {
@@ -27,12 +26,14 @@ namespace Lab04.WebsiteBanHang.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult Register()
         {
             return View();
         }
 
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
             if (ModelState.IsValid)
@@ -40,6 +41,13 @@ namespace Lab04.WebsiteBanHang.Controllers
                 if (model.Age.HasValue && (model.Age.Value < 17 || model.Age.Value > 100))
                 {
                     ModelState.AddModelError("Age", "Tuổi phải từ 17 đến 100");
+                    return View(model);
+                }
+
+                var existingUser = await _userManager.FindByEmailAsync(model.Email);
+                if (existingUser != null)
+                {
+                    ModelState.AddModelError("Email", "Email đã được sử dụng.");
                     return View(model);
                 }
 
@@ -56,9 +64,7 @@ namespace Lab04.WebsiteBanHang.Controllers
 
                 if (result.Succeeded)
                 {
-                    // Gán role mặc định là Customer
                     await _userManager.AddToRoleAsync(user, SD.Role_Customer);
-
                     await _signInManager.SignInAsync(user, isPersistent: false);
                     return RedirectToAction("Index", "Home");
                 }
@@ -73,6 +79,7 @@ namespace Lab04.WebsiteBanHang.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult Login(string returnUrl = null)
         {
             ViewData["ReturnUrl"] = returnUrl;
@@ -80,20 +87,28 @@ namespace Lab04.WebsiteBanHang.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Login(LoginViewModel model, string returnUrl = null)
         {
             ViewData["ReturnUrl"] = returnUrl;
 
             if (ModelState.IsValid)
             {
-                var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: false);
+                var user = await _userManager.FindByEmailAsync(model.Email);
+                if (user == null)
+                {
+                    ModelState.AddModelError(string.Empty, "Email hoặc mật khẩu không chính xác.");
+                    return View(model);
+                }
+
+                var result = await _signInManager.PasswordSignInAsync(user.UserName, model.Password, model.RememberMe, lockoutOnFailure: false);
                 if (result.Succeeded)
                 {
                     return RedirectToLocal(returnUrl);
                 }
                 else
                 {
-                    ModelState.AddModelError(string.Empty, "Đăng nhập không thành công.");
+                    ModelState.AddModelError(string.Empty, "Email hoặc mật khẩu không chính xác.");
                     return View(model);
                 }
             }
@@ -102,27 +117,26 @@ namespace Lab04.WebsiteBanHang.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
             return RedirectToAction("Index", "Home");
         }
 
+        [HttpGet]
         [Authorize]
         public async Task<IActionResult> Manage()
         {
             var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return NotFound();
-            }
+            if (user == null) return NotFound();
 
             var model = new ManageViewModel
             {
                 FullName = user.FullName,
                 Email = user.Email,
                 Address = user.Address,
-                Age = user.Age ?? 17 // Nếu Age là null thì mặc định là 17
+                Age = user.Age ?? 17
             };
 
             return View(model);
@@ -133,20 +147,28 @@ namespace Lab04.WebsiteBanHang.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Manage(ManageViewModel model)
         {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
             if (ModelState.IsValid)
             {
-                if (model.Age.HasValue && (model.Age.Value < 17 || model.Age.Value > 100))
+                // Kiểm tra FullName không để trống
+                if (string.IsNullOrWhiteSpace(model.FullName))
                 {
-                    ModelState.AddModelError("Age", "Tuổi phải từ 17 đến 100");
+                    ModelState.AddModelError("FullName", "Họ và tên không được để trống.");
+                    model.Email = user.Email; // Gán lại Email để không bị mất
                     return View(model);
                 }
 
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
+                // Kiểm tra Age
+                if (model.Age.HasValue && (model.Age.Value < 17 || model.Age.Value > 100))
                 {
-                    return NotFound();
+                    ModelState.AddModelError("Age", "Tuổi phải từ 17 đến 100.");
+                    model.Email = user.Email; // Gán lại Email để không bị mất
+                    return View(model);
                 }
 
+                // Cập nhật thông tin, không thay đổi Email
                 user.FullName = model.FullName;
                 user.Address = model.Address;
                 user.Age = model.Age;
@@ -164,6 +186,8 @@ namespace Lab04.WebsiteBanHang.Controllers
                 }
             }
 
+            // Nếu ModelState không hợp lệ, gán lại Email để không bị mất
+            model.Email = user.Email;
             return View(model);
         }
 
@@ -179,4 +203,4 @@ namespace Lab04.WebsiteBanHang.Controllers
             }
         }
     }
-} 
+}

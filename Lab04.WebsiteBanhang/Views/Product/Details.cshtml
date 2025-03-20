@@ -30,7 +30,7 @@
                                 }
                             }
                         </div>
-                        @if (!string.IsNullOrEmpty(Model.ImageUrl) && Model.Images != null && Model.Images.Any() || (Model.Images != null && Model.Images.Count > 1))
+                        @if ((!string.IsNullOrEmpty(Model.ImageUrl) && Model.Images != null && Model.Images.Any()) || (Model.Images != null && Model.Images.Count > 1))
                         {
                             <!-- Hiển thị nút điều hướng nếu có nhiều hơn 1 ảnh -->
                             <button class="carousel-control-prev" type="button" data-bs-target="#productImageCarousel" data-bs-slide="prev">
@@ -60,3 +60,7 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <!-- Nếu cần thêm script cho carousel (thường đã có trong Bootstrap) -->
+}

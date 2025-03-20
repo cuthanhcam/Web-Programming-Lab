@@ -1,13 +1,9 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Lab04.WebsiteBanHang.Interfaces;
 using Lab04.WebsiteBanHang.Models;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
-using Lab04.WebsiteBanHang.Data;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Lab04.WebsiteBanHang.Controllers
 {
@@ -15,58 +11,94 @@ namespace Lab04.WebsiteBanHang.Controllers
     public class CategoryController : Controller
     {
         private readonly ICategoryRepository _categoryRepository;
+        private readonly IProductRepository _productRepository;
 
-        public CategoryController(ICategoryRepository categoryRepository)
+        public CategoryController(ICategoryRepository categoryRepository, IProductRepository productRepository)
         {
             _categoryRepository = categoryRepository;
+            _productRepository = productRepository;
         }
 
+        // GET: Category/Index
         public async Task<IActionResult> Index()
         {
             var categories = await _categoryRepository.GetAllAsync();
             return View(categories);
         }
 
-        public async Task<IActionResult> Add()
+        // GET: Category/Create
+        public IActionResult Create()
         {
-            ViewBag.Categories = await _categoryRepository.GetAllAsync();
             return View();
         }
 
+        // POST: Category/Create
         [HttpPost]
-        public async Task<IActionResult> Add(Category model)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(Category model)
         {
             if (ModelState.IsValid)
             {
                 model.Products ??= new List<Product>();
                 await _categoryRepository.AddAsync(model);
-                return RedirectToAction("Index");
+                TempData["SuccessMessage"] = "Thêm danh mục thành công!";
+                return RedirectToAction(nameof(Index));
             }
             return View(model);
         }
 
-        public async Task<IActionResult> Update(int id)
+        // GET: Category/Edit/{id}
+        public async Task<IActionResult> Edit(int id)
         {
             var category = await _categoryRepository.GetByIdAsync(id);
             if (category == null) return NotFound();
             return View(category);
         }
 
+        // POST: Category/Edit/{id}
         [HttpPost]
-        public async Task<IActionResult> Update(Category model)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(Category model)
         {
             if (ModelState.IsValid)
             {
                 await _categoryRepository.UpdateAsync(model);
-                return RedirectToAction("Index");
+                TempData["SuccessMessage"] = "Cập nhật danh mục thành công!";
+                return RedirectToAction(nameof(Index));
             }
             return View(model);
         }
 
-        public async Task<IActionResult> Delete(int id)
+        // GET: Category/Delete/{id}
+        public async Task<IActionResult> Delete(int? id)
         {
+            if (id == null) return NotFound();
+            var category = await _categoryRepository.GetByIdAsync(id.Value);
+            if (category == null) return NotFound();
+            return View(category);
+        }
+
+        // POST: Category/Delete/{id}
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            var category = await _categoryRepository.GetByIdAsync(id);
+            if (category == null) return NotFound();
+
+            // Kiểm tra xem category có sản phẩm liên quan không
+            var products = await _productRepository.GetAllAsync();
+            var hasProducts = products.Any(p => p.CategoryId == id);
+
+            if (hasProducts)
+            {
+                TempData["ErrorMessage"] = "Không thể xóa danh mục này vì vẫn còn sản phẩm liên quan. Vui lòng xóa hoặc chuyển sản phẩm sang danh mục khác trước.";
+                return RedirectToAction(nameof(Index));
+            }
+
             await _categoryRepository.DeleteAsync(id);
-            return RedirectToAction("Index");
+            TempData["SuccessMessage"] = "Xóa danh mục thành công!";
+            return RedirectToAction(nameof(Index));
         }
     }
 }
