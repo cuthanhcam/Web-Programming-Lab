@@ -1,10 +1,11 @@
 ﻿@using Lab04.WebsiteBanHang.Models
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Lab04.WebsiteBanHang</title>
+    <title>@ViewData["Title"] - E-Commerce</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -14,19 +15,23 @@
         /* Tùy chỉnh tổng thể */
         body {
             font-family: 'Poppins', sans-serif;
-            background-color: #f0f8ff; /* Cyan nhạt cho nền */
+            background-color: #f0f8ff;
+            /* Cyan nhạt cho nền */
             color: #333;
         }
 
         /* Navbar */
         .navbar {
-            background: linear-gradient(90deg, #00ced1, #00b7eb); /* Gradient cyan */
+            background: linear-gradient(90deg, #00ced1, #00b7eb);
+            /* Gradient cyan */
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
         .navbar-brand {
             font-weight: 700;
             font-size: 2rem;
-            background: linear-gradient(45deg, #e0ffff, #b0e0e6); /* Gradient cyan nhạt cho chữ */
+            background: linear-gradient(45deg, #e0ffff, #b0e0e6);
+            /* Gradient cyan nhạt cho chữ */
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -34,65 +39,85 @@
             align-items: center;
             transition: transform 0.3s ease;
         }
+
         .navbar-brand:hover {
-            transform: scale(1.05); /* Hiệu ứng phóng to nhẹ khi hover */
+            transform: scale(1.05);
+            /* Hiệu ứng phóng to nhẹ khi hover */
         }
+
         .navbar-brand i {
             color: #fff;
             margin-right: 8px;
         }
+
         .nav-link {
             color: #fff !important;
             font-weight: 500;
             transition: color 0.3s ease-in-out;
         }
+
         .nav-link:hover {
-            color: #e0ffff !important; /* Cyan nhạt khi hover */
+            color: #e0ffff !important;
+            /* Cyan nhạt khi hover */
         }
 
         /* Đảm bảo footer luôn ở dưới cùng */
-        html, body {
+        html,
+        body {
             height: 100%;
         }
+
         body {
             display: flex;
             flex-direction: column;
             min-height: 100vh;
             margin: 0;
         }
+
         .container {
-            flex: 1 0 auto; /* Container chính chiếm không gian còn lại */
+            flex: 1 0 auto;
+            /* Container chính chiếm không gian còn lại */
         }
+
         main {
-            flex: 1 0 auto; /* Nội dung chính mở rộng */
+            flex: 1 0 auto;
+            /* Nội dung chính mở rộng */
         }
 
         /* Footer với gradient giống navbar */
         .footer {
             flex-shrink: 0;
-            background: linear-gradient(90deg, #00ced1, #00b7eb); /* Gradient cyan giống navbar */
+            background: linear-gradient(90deg, #00ced1, #00b7eb);
+            /* Gradient cyan giống navbar */
             color: #ffffff;
             font-size: 0.9rem;
             padding: 20px 0;
             box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
         }
+
         .footer a {
-            color: #e0ffff; /* Cyan nhạt cho link */
+            color: #e0ffff;
+            /* Cyan nhạt cho link */
             text-decoration: none;
         }
+
         .footer a:hover {
-            color: #b0e0e6; /* Cyan nhạt hơn khi hover */
+            color: #b0e0e6;
+            /* Cyan nhạt hơn khi hover */
             text-decoration: underline;
         }
     </style>
 </head>
+
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
             <div class="container">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Lab04.WebsiteBanHang</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+                    <i class="bi bi-cart-fill"></i> E-Commerce
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
+                    aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
@@ -112,7 +137,8 @@
                         @if (User.IsInRole(SD.Role_Admin))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="User" asp-action="Index">Quản lý người dùng</a>
+                                <a class="nav-link text-dark" asp-controller="User" asp-action="Index">Quản lý người
+                                    dùng</a>
                             </li>
                         }
                     </ul>
@@ -154,4 +180,5 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
+
 </html>
