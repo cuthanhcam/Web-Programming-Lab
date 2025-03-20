@@ -9,8 +9,13 @@ namespace Lab04.WebsiteBanHang.Models
     public class Category
     {
         public int Id { get; set; }
-        [Required, StringLength(50)]
+
+        [Required(ErrorMessage = "Tên danh mục không được để trống")]
+        [StringLength(50, ErrorMessage = "Tên danh mục không được vượt quá 50 ký tự")]
+        [Display(Name = "Tên danh mục")]
         public string Name { get; set; }
-        public List<Product> Products { get; set; }
+
+        [Display(Name = "Sản phẩm")]
+        public List<Product>? Products { get; set; }
     }
 }
