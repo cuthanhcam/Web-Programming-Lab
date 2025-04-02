@@ -1,0 +1,1333 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Lab05.WebsiteBanHang.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Lab05.WebsiteBanHang.Controllers
+{
+    public class AccountController : Controller
+    {
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
+
+        public AccountController(
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
+            RoleManager<IdentityRole> roleManager)
+        {
+            _userManager = userManager;
+            _signInManager = signInManager;
+            _roleManager = roleManager;
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult Register()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<IActionResult> Register(RegisterViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                // Kiểm tra tuổi
+                if (model.Age.HasValue && (model.Age.Value < 17 || model.Age.Value > 100))
+                {
+                    ModelState.AddModelError("Age", "Tuổi phải từ 17 đến 100");
+                    return View(model);
+                }
+
+                // Kiểm tra email đã tồn tại
+                var existingUser = await _userManager.FindByEmailAsync(model.Email);
+                if (existingUser != null)
+                {
+                    ModelState.AddModelError("Email", "Email đã được sử dụng.");
+                    return View(model);
+                }
+
+                // Tạo user mới
+                var user = new ApplicationUser
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                    FullName = model.FullName,
+                    Address = model.Address,
+                    Age = model.Age,
+                    EmailConfirmed = true // Để không cần xác nhận email
+                };
+
+                var result = await _userManager.CreateAsync(user, model.Password);
+
+                if (result.Succeeded)
+                {
+                    // Đảm bảo vai trò Customer tồn tại
+                    if (!await _roleManager.RoleExistsAsync(SD.Role_Customer))
+                    {
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Customer));
+                    }
+
+                    // Thêm role Customer cho user mới
+                    await _userManager.AddToRoleAsync(user, SD.Role_Customer);
+
+                    // Đăng nhập tự động sau khi đăng ký thành công
+                    await _signInManager.SignInAsync(user, isPersistent: false);
+                    TempData["SuccessMessage"] = "Đăng ký tài khoản thành công!";
+                    return RedirectToAction("Index", "Home");
+                }
+
+                // Xử lý các lỗi từ Identity
+                foreach (var error in result.Errors)
+                {
+                    if (error.Code == "DuplicateUserName")
+                    {
+                        ModelState.AddModelError("Email", "Email đã được sử dụng.");
+                    }
+                    else if (error.Code == "PasswordRequiresDigit")
+                    {
+                        ModelState.AddModelError("Password", "Mật khẩu phải chứa ít nhất một chữ số.");
+                    }
+                    else if (error.Code == "PasswordRequiresLower")
+                    {
+                        ModelState.AddModelError("Password", "Mật khẩu phải chứa ít nhất một chữ thường.");
+                    }
+                    else if (error.Code == "PasswordRequiresUpper")
+                    {
+                        ModelState.AddModelError("Password", "Mật khẩu phải chứa ít nhất một chữ hoa.");
+                    }
+                    else if (error.Code == "PasswordRequiresNonAlphanumeric")
+                    {
+                        ModelState.AddModelError("Password", "Mật khẩu phải chứa ít nhất một ký tự đặc biệt.");
+                    }
+                    else
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
+                }
+            }
+
+            return View(model);
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult Login(string returnUrl = null)
+        {
+            ViewData["ReturnUrl"] = returnUrl;
+            return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<IActionResult> Login(LoginViewModel model, string returnUrl = null)
+        {
+            ViewData["ReturnUrl"] = returnUrl;
+
+            if (ModelState.IsValid)
+            {
+                var user = await _userManager.FindByEmailAsync(model.Email);
+                if (user == null)
+                {
+                    ModelState.AddModelError(string.Empty, "Email hoặc mật khẩu không chính xác.");
+                    return View(model);
+                }
+
+                if (await _userManager.IsLockedOutAsync(user))
+                {
+                    ModelState.AddModelError(string.Empty, "Tài khoản của bạn đã bị khóa.");
+                    return View(model);
+                }
+
+                var result = await _signInManager.PasswordSignInAsync(user.UserName, model.Password, model.RememberMe, lockoutOnFailure: true);
+                if (result.Succeeded)
+                {
+                    // Kiểm tra vai trò sau khi đăng nhập thành công
+                    if (await _userManager.IsInRoleAsync(user, SD.Role_Admin))
+                    {
+                        return RedirectToAction("Index", "User");
+                    }
+                    return RedirectToLocal(returnUrl);
+                }
+                else
+                {
+                    ModelState.AddModelError(string.Empty, "Email hoặc mật khẩu không chính xác.");
+                    return View(model);
+                }
+            }
+
+            return View(model);
+        }
+
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            await _signInManager.SignOutAsync();
+            return RedirectToAction("Index", "Home");
+        }
+
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> Manage()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            // Chọn layout dựa trên vai trò
+            if (await _userManager.IsInRoleAsync(user, SD.Role_Admin))
+            {
+                ViewData["Layout"] = "~/Views/Shared/_AdminLayout.cshtml";
+            }
+            else
+            {
+                ViewData["Layout"] = "~/Views/Shared/_Layout.cshtml";
+            }
+
+            var model = new ManageViewModel
+            {
+                FullName = user.FullName,
+                Email = user.Email,
+                Address = user.Address,
+                Age = user.Age ?? 17
+            };
+
+            return View(model);
+        }
+
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Manage(ManageViewModel model)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            if (ModelState.IsValid)
+            {
+                // Kiểm tra FullName không để trống
+                if (string.IsNullOrWhiteSpace(model.FullName))
+                {
+                    ModelState.AddModelError("FullName", "Họ và tên không được để trống.");
+                    model.Email = user.Email; // Gán lại Email để không bị mất
+                    return View(model);
+                }
+
+                // Kiểm tra Age
+                if (model.Age.HasValue && (model.Age.Value < 17 || model.Age.Value > 100))
+                {
+                    ModelState.AddModelError("Age", "Tuổi phải từ 17 đến 100.");
+                    model.Email = user.Email; // Gán lại Email để không bị mất
+                    return View(model);
+                }
+
+                // Cập nhật thông tin, không thay đổi Email
+                user.FullName = model.FullName;
+                user.Address = model.Address;
+                user.Age = model.Age;
+
+                var result = await _userManager.UpdateAsync(user);
+                if (result.Succeeded)
+                {
+                    TempData["SuccessMessage"] = "Cập nhật thông tin thành công!";
+                    return RedirectToAction(nameof(Manage));
+                }
+
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+            }
+
+            // Nếu ModelState không hợp lệ, gán lại Email để không bị mất
+            model.Email = user.Email;
+            return View(model);
+        }
+
+        private IActionResult RedirectToLocal(string returnUrl)
+        {
+            if (Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+            else
+            {
+                return RedirectToAction(nameof(HomeController.Index), "Home");
+            }
+        }
+    }
+}
+using Lab05.WebsiteBanHang.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
+
+namespace Lab05.WebsiteBanHang.Controllers
+{
+    [Authorize]
+    public abstract class BaseController : Controller
+    {
+        protected bool IsAdmin => User.IsInRole(SD.Role_Admin);
+        protected bool IsEmployee => User.IsInRole(SD.Role_Employee);
+        protected bool IsCustomer => User.IsInRole(SD.Role_Customer);
+
+        public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            base.OnActionExecuting(context);
+            if (IsAdmin)
+            {
+                ViewData["Layout"] = "~/Views/Shared/_AdminLayout.cshtml";
+            }
+            else
+            {
+                ViewData["Layout"] = "~/Views/Shared/_Layout.cshtml";
+            }
+        }
+
+        protected IActionResult AccessDenied()
+        {
+            return View("~/Views/Shared/AccessDenied.cshtml");
+        }
+    }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Lab05.WebsiteBanHang.Models;
+using Lab05.WebsiteBanHang.Repositories;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Lab05.WebsiteBanHang.Controllers
+{
+    public class CategoryController : BaseController
+    {
+        private readonly ICategoryRepository _categoryRepository;
+        private readonly IProductRepository _productRepository;
+
+        public CategoryController(ICategoryRepository categoryRepository, IProductRepository productRepository)
+        {
+            _categoryRepository = categoryRepository;
+            _productRepository = productRepository;
+        }
+
+        // GET: Category/Index
+        public async Task<IActionResult> Index()
+        {
+            var categories = await _categoryRepository.GetAllAsync();
+            return View(categories);
+        }
+
+        // GET: Category/Create
+        public IActionResult Create()
+        {
+            return View();
+        }
+
+        // POST: Category/Create
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(Category model)
+        {
+            if (ModelState.IsValid)
+            {
+                // Kiểm tra trùng lặp tên danh mục
+                var existingCategory = (await _categoryRepository.GetAllAsync())
+                    .FirstOrDefault(c => c.Name.Equals(model.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (existingCategory != null)
+                {
+                    ModelState.AddModelError("Name", "Tên danh mục đã tồn tại.");
+                    return View(model);
+                }
+
+                await _categoryRepository.AddAsync(model);
+                TempData["SuccessMessage"] = "Thêm danh mục thành công!";
+                return RedirectToAction(nameof(Index));
+            }
+            return View(model);
+        }
+
+        // GET: Category/Edit/{id}
+        public async Task<IActionResult> Edit(int id)
+        {
+            var category = await _categoryRepository.GetByIdAsync(id);
+            if (category == null) return NotFound();
+            return View(category);
+        }
+
+        // POST: Category/Edit/{id}
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(Category model)
+        {
+            if (ModelState.IsValid)
+            {
+                // Kiểm tra trùng lặp tên danh mục (trừ danh mục hiện tại)
+                var existingCategory = (await _categoryRepository.GetAllAsync())
+                    .FirstOrDefault(c => c.Name.Equals(model.Name, StringComparison.OrdinalIgnoreCase) && c.Id != model.Id);
+
+                if (existingCategory != null)
+                {
+                    ModelState.AddModelError("Name", "Tên danh mục đã tồn tại.");
+                    return View(model);
+                }
+
+                await _categoryRepository.UpdateAsync(model);
+                TempData["SuccessMessage"] = "Cập nhật danh mục thành công!";
+                return RedirectToAction(nameof(Index));
+            }
+            return View(model);
+        }
+
+        // GET: Category/Delete/{id}
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null) return NotFound();
+            var category = await _categoryRepository.GetByIdAsync(id.Value);
+            if (category == null) return NotFound();
+            return View(category);
+        }
+
+        // POST: Category/Delete/{id}
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            var category = await _categoryRepository.GetByIdAsync(id);
+            if (category == null) return NotFound();
+
+            // Kiểm tra xem category có sản phẩm liên quan không
+            var hasProducts = (await _productRepository.GetAllAsync()).Any(p => p.CategoryId == id);
+
+            if (hasProducts)
+            {
+                TempData["ErrorMessage"] = "Không thể xóa danh mục này vì vẫn còn sản phẩm liên quan. Vui lòng xóa hoặc chuyển sản phẩm sang danh mục khác trước.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            await _categoryRepository.DeleteAsync(id);
+            TempData["SuccessMessage"] = "Xóa danh mục thành công!";
+            return RedirectToAction(nameof(Index));
+        }
+    }
+}
+using System.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using Lab05.WebsiteBanHang.Models;
+using Lab05.WebsiteBanHang.Repositories;
+
+namespace Lab05.WebsiteBanHang.Controllers;
+
+public class HomeController : Controller
+{
+    private readonly IProductRepository _productRepository;
+
+    public HomeController(IProductRepository productRepository)
+    {
+        _productRepository = productRepository;
+    }
+
+    public async Task<IActionResult> Index()
+    {
+        if (User.Identity.IsAuthenticated && User.IsInRole(SD.Role_Admin))
+        {
+            ViewData["Layout"] = "~/Views/Shared/_AdminLayout.cshtml";
+        }
+        else
+        {
+            ViewData["Layout"] = "~/Views/Shared/_Layout.cshtml";
+        }
+
+        var products = await _productRepository.GetAllAsync();
+        return View(products);
+    }
+
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult Error()
+    {
+        return View();
+    }
+}
+using System.Threading.Tasks;
+using Lab05.WebsiteBanHang.Models;
+using Lab05.WebsiteBanHang.Repositories;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Lab05.WebsiteBanHang.Controllers
+{
+    [Authorize]
+    public class OrderController : BaseController
+    {
+        private readonly IOrderRepository _orderRepository;
+        private readonly UserManager<ApplicationUser> _userManager;
+
+        public OrderController(IOrderRepository orderRepository, UserManager<ApplicationUser> userManager)
+        {
+            _orderRepository = orderRepository;
+            _userManager = userManager;
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            // Nếu là Admin hoặc Employee, hiển thị tất cả đơn hàng
+            if (IsAdmin || IsEmployee)
+            {
+                var allOrders = await _orderRepository.GetAllAsync();
+                return View("AdminIndex", allOrders); // Sử dụng view tương tự OrderManagement/Index
+            }
+
+            // Nếu là Customer, chỉ hiển thị đơn hàng của họ
+            var orders = await _orderRepository.GetOrdersByUserIdAsync(user.Id);
+            return View(orders);
+        }
+
+        public async Task<IActionResult> Details(int id)
+        {
+            var order = await _orderRepository.GetByIdAsync(id);
+            if (order == null) return NotFound();
+
+            var user = await _userManager.GetUserAsync(User);
+            if (!IsAdmin && !IsEmployee && order.UserId != user.Id)
+            {
+                return AccessDenied(); // Người dùng chỉ xem được đơn hàng của mình
+            }
+
+            return View(order);
+        }
+    }
+}
+using System.Threading.Tasks;
+using Lab05.WebsiteBanHang.Models;
+using Lab05.WebsiteBanHang.Repositories;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Lab05.WebsiteBanHang.Controllers
+{
+    [Authorize(Roles = "Admin,Employee")]
+    public class OrderManagementController : BaseController
+    {
+        private readonly IOrderRepository _orderRepository;
+
+        public OrderManagementController(IOrderRepository orderRepository)
+        {
+            _orderRepository = orderRepository;
+
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var orders = await _orderRepository.GetAllAsync();
+            return View(orders);
+        }
+
+        public async Task<IActionResult> Details(int id)
+        {
+            var order = await _orderRepository.GetByIdAsync(id);
+            if (order == null)
+            {
+                return NotFound();
+            }
+            return View(order);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> EditStatus(int id)
+        {
+            var order = await _orderRepository.GetByIdAsync(id);
+            if (order == null)
+            {
+                return NotFound();
+            }
+            return View(order);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditStatus(int id, string status)
+        {
+            var order = await _orderRepository.GetByIdAsync(id);
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            var validStatuses = new[] { "Chờ xử lý", "Đang giao", "Hoàn thành", "Hủy" };
+            if (!validStatuses.Contains(status))
+            {
+                TempData["ErrorMessage"] = "Trạng thái không hợp lệ.";
+                return RedirectToAction("Details", new { id });
+            }
+
+            order.Status = status;
+            await _orderRepository.UpdateAsync(order);
+
+            TempData["SuccessMessage"] = $"Cập nhật trạng thái đơn hàng #{id} thành công.";
+            return RedirectToAction("Details", new { id });
+        }
+    }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Lab05.WebsiteBanHang.Models;
+using Lab05.WebsiteBanHang.Repositories;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+
+namespace Lab05.WebsiteBanHang.Controllers
+{
+    public class ProductController : BaseController
+    {
+        private readonly IProductRepository _productRepository;
+        private readonly ICategoryRepository _categoryRepository;
+
+        public ProductController(IProductRepository productRepository, ICategoryRepository categoryRepository)
+        {
+            _productRepository = productRepository;
+            _categoryRepository = categoryRepository;
+        }
+
+        [AllowAnonymous]
+        public async Task<IActionResult> Index(string searchString, int? categoryId, string sortOrder)
+        {
+            var products = await _productRepository.GetFilteredProductsAsync(searchString, categoryId, sortOrder);
+
+            var categories = await _categoryRepository.GetAllAsync();
+            ViewData["Categories"] = new SelectList(categories, "Id", "Name");
+            ViewData["CurrentSearch"] = searchString;
+            ViewData["CurrentCategory"] = categoryId;
+            ViewData["CurrentSort"] = sortOrder;
+
+            return View(products);
+        }
+        
+        // GET: Product/Details/{id}
+        [Authorize]
+        public async Task<IActionResult> Details(int? id)
+        {
+            if (id == null) return NotFound();
+            var product = await _productRepository.GetByIdAsync(id.Value);
+            if (product == null) return NotFound();
+            return View(product);
+        }
+
+        // GET: Product/Create
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
+        public async Task<IActionResult> Create()
+        {
+            var categories = await _categoryRepository.GetAllAsync();
+            ViewData["CategoryId"] = new SelectList(categories, "Id", "Name");
+            return View();
+        }
+
+        // POST: Product/Create
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = SD.Role_Admin + "," + "," + SD.Role_Employee)]
+        public async Task<IActionResult> Create([Bind("Name,Description,Price,CategoryId")] Product product, List<IFormFile> images)
+        {
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    // Kiểm tra trùng lặp tên sản phẩm
+                    var existingProduct = (await _productRepository.GetAllAsync())
+                        .FirstOrDefault(p => p.Name.Equals(product.Name, StringComparison.OrdinalIgnoreCase));
+
+                    if (existingProduct != null)
+                    {
+                        ModelState.AddModelError("Name", "Tên sản phẩm đã tồn tại.");
+                        var categoryList = await _categoryRepository.GetAllAsync();
+                        ViewData["CategoryId"] = new SelectList(categoryList, "Id", "Name", product.CategoryId);
+                        return View(product);
+                    }
+
+                    await _productRepository.AddAsync(product);
+                    if (images != null && images.Any())
+                    {
+                        product.Images ??= new List<ProductImage>();
+                        foreach (var image in images)
+                        {
+                            if (image != null && image.Length > 0)
+                            {
+                                var imagePath = await SaveImage(image);
+                                product.Images.Add(new ProductImage { Url = imagePath, ProductId = product.Id });
+                            }
+                        }
+                        await _productRepository.UpdateAsync(product);
+                    }
+                    TempData["SuccessMessage"] = "Thêm sản phẩm thành công!";
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (Exception ex)
+                {
+                    ModelState.AddModelError("", "Có lỗi xảy ra khi thêm sản phẩm: " + ex.Message);
+                }
+            }
+            var categories = await _categoryRepository.GetAllAsync();
+            ViewData["CategoryId"] = new SelectList(categories, "Id", "Name", product.CategoryId);
+            return View(product);
+        }
+
+        // GET: Product/Edit/{id}
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null) return NotFound();
+            var product = await _productRepository.GetByIdAsync(id.Value);
+            if (product == null) return NotFound();
+            var categories = await _categoryRepository.GetAllAsync();
+            ViewData["CategoryId"] = new SelectList(categories, "Id", "Name", product.CategoryId);
+            return View(product);
+        }
+
+        // POST: Product/Edit/{id}
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Description,Price,CategoryId")] Product product, List<IFormFile> images, List<int> deleteImages)
+        {
+            if (id != product.Id) return NotFound();
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    var existingProduct = await _productRepository.GetByIdAsync(id);
+                    if (existingProduct == null) return NotFound();
+
+                    // Kiểm tra trùng lặp tên sản phẩm (trừ sản phẩm hiện tại)
+                    var existingProductName = (await _productRepository.GetAllAsync())
+                        .FirstOrDefault(p => p.Name.Equals(product.Name, StringComparison.OrdinalIgnoreCase) && p.Id != product.Id);
+
+                    if (existingProductName != null)
+                    {
+                        ModelState.AddModelError("Name", "Tên sản phẩm đã tồn tại.");
+                        var categoryList = await _categoryRepository.GetAllAsync();
+                        ViewData["CategoryId"] = new SelectList(categoryList, "Id", "Name", product.CategoryId);
+                        return View(product);
+                    }
+
+                    existingProduct.Name = product.Name;
+                    existingProduct.Price = product.Price;
+                    existingProduct.Description = product.Description;
+                    existingProduct.CategoryId = product.CategoryId;
+
+                    if (deleteImages != null && deleteImages.Any())
+                    {
+                        existingProduct.Images ??= new List<ProductImage>();
+                        var imagesToDelete = existingProduct.Images.Where(img => deleteImages.Contains(img.Id)).ToList();
+                        foreach (var image in imagesToDelete)
+                        {
+                            var imagePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", image.Url.TrimStart('/'));
+                            if (System.IO.File.Exists(imagePath)) System.IO.File.Delete(imagePath);
+                            existingProduct.Images.Remove(image);
+                        }
+                    }
+
+                    if (images != null && images.Any())
+                    {
+                        existingProduct.Images ??= new List<ProductImage>();
+                        foreach (var image in images)
+                        {
+                            if (image != null && image.Length > 0)
+                            {
+                                var imagePath = await SaveImage(image);
+                                existingProduct.Images.Add(new ProductImage { Url = imagePath, ProductId = existingProduct.Id });
+                            }
+                        }
+                    }
+
+                    await _productRepository.UpdateAsync(existingProduct);
+                    TempData["SuccessMessage"] = "Cập nhật sản phẩm thành công!";
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!await ProductExists(product.Id)) return NotFound();
+                    throw;
+                }
+            }
+            var categories = await _categoryRepository.GetAllAsync();
+            ViewData["CategoryId"] = new SelectList(categories, "Id", "Name", product.CategoryId);
+            return View(product);
+        }
+
+        // GET: Product/Delete/{id}
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null) return NotFound();
+            var product = await _productRepository.GetByIdAsync(id.Value);
+            if (product == null) return NotFound();
+            return View(product);
+        }
+
+        // POST: Product/Delete/{id}
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            await _productRepository.DeleteAsync(id);
+            TempData["SuccessMessage"] = "Xóa sản phẩm thành công!";
+            return RedirectToAction(nameof(Index));
+        }
+
+        // Helper methods
+        private async Task<bool> ProductExists(int id)
+        {
+            var product = await _productRepository.GetByIdAsync(id);
+            return product != null;
+        }
+
+        private async Task<string> SaveImage(IFormFile image)
+        {
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+            var extension = Path.GetExtension(image.FileName).ToLower();
+            if (!allowedExtensions.Contains(extension))
+            {
+                throw new Exception("Định dạng file không hợp lệ. Chỉ chấp nhận .jpg, .jpeg, .png.");
+            }
+
+            var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/images");
+            if (!Directory.Exists(folderPath)) Directory.CreateDirectory(folderPath);
+
+            var fileName = Guid.NewGuid().ToString() + extension;
+            var savePath = Path.Combine(folderPath, fileName);
+            using (var fileStream = new FileStream(savePath, FileMode.Create))
+            {
+                await image.CopyToAsync(fileStream);
+            }
+            return "/images/" + fileName;
+        }
+    }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Lab05.WebsiteBanHang.Controllers
+{
+    public class SharedController : Controller
+    {
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult AccessDenied()
+        {
+            return View();
+        }
+        // protected IActionResult AccssDenied()
+        // {
+        //     return View("~/Views/Shared/AccessDenied.cshtml");
+        // }
+    }
+}
+using System.Threading.Tasks;
+using Lab05.WebsiteBanHang.Data;
+using Lab05.WebsiteBanHang.Models;
+using Lab05.WebsiteBanHang.Repositories;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Lab05.WebsiteBanHang.Controllers
+{
+    public class ShoppingCartController : BaseController
+    {
+        private readonly IProductRepository _productRepository;
+        private readonly ICartRepository _cartRepository;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ApplicationDbContext _context;
+
+        public ShoppingCartController(
+            IProductRepository productRepository,
+            ICartRepository cartRepository,
+            UserManager<ApplicationUser> userManager,
+            ApplicationDbContext context)
+        {
+            _productRepository = productRepository;
+            _cartRepository = cartRepository;
+            _userManager = userManager;
+            _context = context;
+        }
+
+        private async Task<Cart> GetCartAsync()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return new Cart { Items = new System.Collections.Generic.List<CartItem>() };
+            }
+
+            return await _cartRepository.GetCartByUserIdAsync(user.Id);
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var cart = await GetCartAsync();
+            return View(cart);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AddToCart(int productId, int quantity = 1)
+        {
+            var product = await _productRepository.GetByIdAsync(productId);
+            if (product == null)
+            {
+                TempData["ErrorMessage"] = "Sản phẩm không tồn tại.";
+                return RedirectToAction("Index", "Product");
+            }
+
+            var cart = await GetCartAsync();
+            if (cart.UserId == null)
+            {
+                TempData["ErrorMessage"] = "Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.";
+                return RedirectToAction("Login", "Account");
+            }
+
+            var cartItem = cart.Items.FirstOrDefault(i => i.ProductId == productId);
+            if (cartItem != null)
+            {
+                cartItem.Quantity += quantity;
+                await _cartRepository.UpdateCartItemAsync(cartItem);
+            }
+            else
+            {
+                var newCartItem = new CartItem
+                {
+                    CartId = cart.Id,
+                    ProductId = productId,
+                    Name = product.Name,
+                    Price = product.Price,
+                    Quantity = quantity
+                };
+                await _cartRepository.AddCartItemAsync(newCartItem);
+            }
+
+            TempData["SuccessMessage"] = $"Đã thêm {product.Name} vào giỏ hàng!";
+            return RedirectToAction("Index");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> RemoveFromCart(int productId)
+        {
+            var cart = await GetCartAsync();
+            var cartItem = cart.Items.FirstOrDefault(i => i.ProductId == productId);
+            if (cartItem != null)
+            {
+                await _cartRepository.RemoveCartItemAsync(cartItem.Id);
+                TempData["SuccessMessage"] = "Đã xóa sản phẩm khỏi giỏ hàng.";
+            }
+            return RedirectToAction("Index");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> IncreaseQuantity(int productId)
+        {
+            var cart = await GetCartAsync();
+            var cartItem = cart.Items.FirstOrDefault(i => i.ProductId == productId);
+            if (cartItem != null)
+            {
+                cartItem.Quantity++;
+                await _cartRepository.UpdateCartItemAsync(cartItem);
+            }
+            return RedirectToAction("Index");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DecreaseQuantity(int productId)
+        {
+            var cart = await GetCartAsync();
+            var cartItem = cart.Items.FirstOrDefault(i => i.ProductId == productId);
+            if (cartItem != null)
+            {
+                cartItem.Quantity--;
+                if (cartItem.Quantity <= 0)
+                {
+                    await _cartRepository.RemoveCartItemAsync(cartItem.Id);
+                }
+                else
+                {
+                    await _cartRepository.UpdateCartItemAsync(cartItem);
+                }
+            }
+            return RedirectToAction("Index");
+        }
+
+        [Authorize]
+        public async Task<IActionResult> Checkout()
+        {
+            var cart = await GetCartAsync();
+            if (!cart.Items.Any())
+            {
+                TempData["ErrorMessage"] = "Giỏ hàng trống. Vui lòng thêm sản phẩm trước khi thanh toán.";
+                return RedirectToAction("Index");
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            var order = new Order
+            {
+                UserId = user.Id,
+                TotalPrice = cart.GetTotalPrice()
+            };
+            return View(order);
+        }
+
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Checkout(Order order)
+        {
+            var cart = await GetCartAsync();
+            if (!cart.Items.Any())
+            {
+                TempData["ErrorMessage"] = "Giỏ hàng trống.";
+                return RedirectToAction("Index");
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            order.UserId = user.Id;
+
+            // Bỏ qua validation cho Notes nếu trống
+            if (string.IsNullOrEmpty(order.Notes))
+            {
+                ModelState.Remove("Notes"); // Xóa lỗi validation cho Notes
+            }
+
+            if (ModelState.IsValid)
+            {
+                // Lấy thời gian hiện tại theo UTC+7 (Việt Nam)
+                TimeZoneInfo vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+                order.OrderDate = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, vietnamTimeZone);
+
+                order.TotalPrice = cart.GetTotalPrice();
+                order.OrderDetails = cart.Items.Select(i => new OrderDetail
+                {
+                    ProductId = i.ProductId,
+                    Quantity = i.Quantity,
+                    Price = i.Price
+                }).ToList();
+
+                _context.Orders.Add(order);
+                await _context.SaveChangesAsync();
+
+                await _cartRepository.ClearCartAsync(user.Id);
+
+                TempData["SuccessMessage"] = "Đặt hàng thành công!";
+                return RedirectToAction("OrderCompleted", new { orderId = order.Id });
+            }
+
+            return View(order);
+        }
+
+        public IActionResult OrderCompleted(int orderId)
+        {
+            return View(orderId);
+        }
+    }
+}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Lab05.WebsiteBanHang.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace Lab05.WebsiteBanHang.Controllers
+{
+    [Authorize(Roles = SD.Role_Admin)]
+    public class UserController : BaseController
+    {
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
+
+        public UserController(
+            UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager)
+        {
+            _userManager = userManager;
+            _roleManager = roleManager;
+        }
+
+        // GET: User/Index
+        public async Task<IActionResult> Index()
+        {
+            ViewData["Layout"] = "~/Views/Shared/_AdminLayout.cshtml";
+            var users = await _userManager.Users.ToListAsync();
+            var userRoles = new List<UserRoleViewModel>();
+
+            // Lấy thông tin người dùng hiện tại
+            var currentUser = await _userManager.GetUserAsync(User);
+            var isCurrentUserAdmin = await _userManager.IsInRoleAsync(currentUser, SD.Role_Admin);
+            ViewBag.CurrentUserId = currentUser.Id;
+
+            foreach (var user in users)
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+                userRoles.Add(new UserRoleViewModel
+                {
+                    UserId = user.Id,
+                    UserName = user.UserName,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    Address = user.Address,
+                    Age = user.Age,
+                    Roles = roles.ToList(),
+                    IsCurrentUserAdmin = isCurrentUserAdmin
+                });
+            }
+
+            return View(userRoles);
+        }
+
+        // GET: User/Create
+        [HttpGet]
+        public IActionResult Create()
+        {
+            return View();
+        }
+
+        // POST: User/Create
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(RegisterViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                // Kiểm tra email đã tồn tại
+                var existingUser = await _userManager.FindByEmailAsync(model.Email);
+                if (existingUser != null)
+                {
+                    ModelState.AddModelError("Email", "Email đã được sử dụng.");
+                    return View(model);
+                }
+
+                var user = new ApplicationUser
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                    FullName = model.FullName,
+                    Address = model.Address,
+                    Age = model.Age
+                };
+
+                var result = await _userManager.CreateAsync(user, model.Password);
+
+                if (result.Succeeded)
+                {
+                    // Đảm bảo vai trò Customer tồn tại
+                    if (!await _roleManager.RoleExistsAsync(SD.Role_Customer))
+                    {
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Customer));
+                    }
+
+                    await _userManager.AddToRoleAsync(user, SD.Role_Customer);
+                    TempData["SuccessMessage"] = "Thêm người dùng thành công!";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+            }
+            return View(model);
+        }
+
+        // GET: User/Edit/{id}
+        public async Task<IActionResult> Edit(string id)
+        {
+            if (id == null) return NotFound();
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return NotFound();
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            var allRoles = await _roleManager.Roles.ToListAsync();
+
+            // Kiểm tra xem user đang sửa có phải là admin không
+            var isTargetUserAdmin = userRoles.Contains(SD.Role_Admin);
+
+            // Kiểm tra xem user hiện tại có phải là admin không
+            var currentUser = await _userManager.GetUserAsync(User);
+            var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+            var isCurrentUserAdmin = currentUserRoles.Contains(SD.Role_Admin);
+
+            var model = new UserRoleViewModel
+            {
+                UserId = user.Id,
+                UserName = user.UserName,
+                FullName = user.FullName,
+                Email = user.Email,
+                Address = user.Address,
+                Age = user.Age,
+                Roles = userRoles.ToList(),
+                AvailableRoles = allRoles.Select(r => r.Name).ToList(),
+                IsTargetUserAdmin = isTargetUserAdmin,
+                IsCurrentUserAdmin = isCurrentUserAdmin
+            };
+
+            return View(model);
+        }
+
+        // POST: User/Edit/{id}
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(UserRoleViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = await _userManager.FindByIdAsync(model.UserId);
+                if (user == null) return NotFound();
+
+                // Kiểm tra trùng lặp email (trừ người dùng hiện tại)
+                var existingUser = await _userManager.FindByEmailAsync(model.Email);
+                if (existingUser != null && existingUser.Id != model.UserId)
+                {
+                    ModelState.AddModelError("Email", "Email đã được sử dụng.");
+                    var availableRoles = await _roleManager.Roles.ToListAsync();
+                    model.AvailableRoles = availableRoles.Select(r => r.Name).ToList();
+                    return View(model);
+                }
+
+                // Kiểm tra xem user hiện tại có phải là admin không
+                var currentUser = await _userManager.GetUserAsync(User);
+                var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+                var isCurrentUserAdmin = currentUserRoles.Contains(SD.Role_Admin);
+
+                // Kiểm tra xem user đang sửa có phải là admin không
+                var targetUserRoles = await _userManager.GetRolesAsync(user);
+                var isTargetUserAdmin = targetUserRoles.Contains(SD.Role_Admin);
+
+                // Nếu user đang sửa là admin và user hiện tại không phải admin, không cho phép sửa
+                if (isTargetUserAdmin && !isCurrentUserAdmin)
+                {
+                    ModelState.AddModelError("", "Bạn không có quyền sửa thông tin admin.");
+                    var availableRoles = await _roleManager.Roles.ToListAsync();
+                    model.AvailableRoles = availableRoles.Select(r => r.Name).ToList();
+                    return View(model);
+                }
+
+                // Cập nhật thông tin người dùng
+                user.FullName = model.FullName;
+                user.Email = model.Email;
+                user.UserName = model.Email; // Đảm bảo UserName đồng bộ với Email
+                user.Address = model.Address;
+                user.Age = model.Age;
+
+                var updateResult = await _userManager.UpdateAsync(user);
+                if (!updateResult.Succeeded)
+                {
+                    foreach (var error in updateResult.Errors)
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
+                    return View(model);
+                }
+
+                // Cập nhật vai trò - chỉ cho phép 1 role
+                var currentRoles = await _userManager.GetRolesAsync(user);
+                await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                
+                // Chỉ thêm role đầu tiên được chọn
+                if (model.Roles.Any())
+                {
+                    await _userManager.AddToRoleAsync(user, model.Roles.First());
+                }
+
+                TempData["SuccessMessage"] = "Cập nhật thông tin và quyền thành công!";
+                return RedirectToAction(nameof(Index));
+            }
+
+            // Nếu ModelState không hợp lệ, load lại danh sách vai trò
+            var allRoles = await _roleManager.Roles.ToListAsync();
+            model.AvailableRoles = allRoles.Select(r => r.Name).ToList();
+            return View(model);
+        }
+
+        // GET: User/Delete/{id}
+        public async Task<IActionResult> Delete(string id)
+        {
+            if (id == null) return NotFound();
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return NotFound();
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            var model = new UserRoleViewModel
+            {
+                UserId = user.Id,
+                UserName = user.UserName,
+                FullName = user.FullName,
+                Email = user.Email,
+                Roles = userRoles.ToList()
+            };
+
+            return View(model);
+        }
+
+        // POST: User/Delete/{id}
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound();
+            }
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            // Kiểm tra xem người dùng cần xóa có phải là admin không
+            var isTargetUserAdmin = await _userManager.IsInRoleAsync(user, SD.Role_Admin);
+            if (isTargetUserAdmin)
+            {
+                // Lấy thông tin người dùng hiện tại
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser.Id != user.Id) // Nếu không phải chính mình
+                {
+                    TempData["Error"] = "Không thể xóa tài khoản Admin khác.";
+                    return RedirectToAction(nameof(Index));
+                }
+            }
+
+            var result = await _userManager.DeleteAsync(user);
+            if (result.Succeeded)
+            {
+                TempData["Success"] = "Xóa người dùng thành công.";
+            }
+            else
+            {
+                TempData["Error"] = "Có lỗi xảy ra khi xóa người dùng.";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+    }
+}

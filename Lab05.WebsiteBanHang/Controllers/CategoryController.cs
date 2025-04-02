@@ -1,14 +1,14 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Lab05.WebsiteBanHang.Interfaces;
 using Lab05.WebsiteBanHang.Models;
-using Microsoft.AspNetCore.Authorization;
+using Lab05.WebsiteBanHang.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Lab05.WebsiteBanHang.Controllers
 {
-    [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Company)]
-    public class CategoryController : Controller
+    public class CategoryController : BaseController
     {
         private readonly ICategoryRepository _categoryRepository;
         private readonly IProductRepository _productRepository;
@@ -39,7 +39,16 @@ namespace Lab05.WebsiteBanHang.Controllers
         {
             if (ModelState.IsValid)
             {
-                model.Products ??= new List<Product>();
+                // Kiểm tra trùng lặp tên danh mục
+                var existingCategory = (await _categoryRepository.GetAllAsync())
+                    .FirstOrDefault(c => c.Name.Equals(model.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (existingCategory != null)
+                {
+                    ModelState.AddModelError("Name", "Tên danh mục đã tồn tại.");
+                    return View(model);
+                }
+
                 await _categoryRepository.AddAsync(model);
                 TempData["SuccessMessage"] = "Thêm danh mục thành công!";
                 return RedirectToAction(nameof(Index));
@@ -62,6 +71,16 @@ namespace Lab05.WebsiteBanHang.Controllers
         {
             if (ModelState.IsValid)
             {
+                // Kiểm tra trùng lặp tên danh mục (trừ danh mục hiện tại)
+                var existingCategory = (await _categoryRepository.GetAllAsync())
+                    .FirstOrDefault(c => c.Name.Equals(model.Name, StringComparison.OrdinalIgnoreCase) && c.Id != model.Id);
+
+                if (existingCategory != null)
+                {
+                    ModelState.AddModelError("Name", "Tên danh mục đã tồn tại.");
+                    return View(model);
+                }
+
                 await _categoryRepository.UpdateAsync(model);
                 TempData["SuccessMessage"] = "Cập nhật danh mục thành công!";
                 return RedirectToAction(nameof(Index));
@@ -87,8 +106,7 @@ namespace Lab05.WebsiteBanHang.Controllers
             if (category == null) return NotFound();
 
             // Kiểm tra xem category có sản phẩm liên quan không
-            var products = await _productRepository.GetAllAsync();
-            var hasProducts = products.Any(p => p.CategoryId == id);
+            var hasProducts = (await _productRepository.GetAllAsync()).Any(p => p.CategoryId == id);
 
             if (hasProducts)
             {

@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Lab05.WebsiteBanHang.Models
 {
@@ -13,5 +15,7 @@ namespace Lab05.WebsiteBanHang.Models
         public int? Age { get; set; }
         public List<string> Roles { get; set; } = new List<string>();
         public List<string> AvailableRoles { get; set; } = new List<string>();
+        public bool IsTargetUserAdmin { get; set; }
+        public bool IsCurrentUserAdmin { get; set; }
     }
-} 
+}

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Lab05.WebsiteBanHang.Data;
-using Lab05.WebsiteBanHang.Interfaces;
 using Lab05.WebsiteBanHang.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +11,7 @@ namespace Lab05.WebsiteBanHang.Repositories
     public class EFCategoryRepository : ICategoryRepository
     {
         private readonly ApplicationDbContext _context;
+
         public EFCategoryRepository(ApplicationDbContext context)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
@@ -21,44 +21,93 @@ namespace Lab05.WebsiteBanHang.Repositories
         {
             if (_context.Categories == null)
             {
-                Console.WriteLine("DbSet Categories is null!");
-                return new List<Category>();
+                throw new InvalidOperationException("Categories table is not available.");
             }
 
-            var categories = await _context.Categories
+            return await _context.Categories
                 .Include(c => c.Products)
+                .AsNoTracking()
                 .ToListAsync();
-
-            return categories ?? new List<Category>();
         }
 
         public async Task<Category> GetByIdAsync(int id)
         {
-            return await _context.Categories
+            if (_context.Categories == null)
+            {
+                throw new InvalidOperationException("Categories table is not available.");
+            }
+
+            var category = await _context.Categories
                 .Include(c => c.Products)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == id);
+
+            if (category == null)
+            {
+                throw new KeyNotFoundException($"Category with ID {id} not found.");
+            }
+
+            return category;
         }
 
         public async Task AddAsync(Category category)
         {
-            _context.Categories.Add(category);
+            if (category == null)
+            {
+                throw new ArgumentNullException(nameof(category));
+            }
+
+            if (_context.Categories == null)
+            {
+                throw new InvalidOperationException("Categories table is not available.");
+            }
+
+            await _context.Categories.AddAsync(category);
             await _context.SaveChangesAsync();
         }
 
         public async Task UpdateAsync(Category category)
         {
-            _context.Categories.Update(category);
+            if (category == null)
+            {
+                throw new ArgumentNullException(nameof(category));
+            }
+
+            if (_context.Categories == null)
+            {
+                throw new InvalidOperationException("Categories table is not available.");
+            }
+
+            var existingCategory = await _context.Categories
+                .FirstOrDefaultAsync(c => c.Id == category.Id);
+
+            if (existingCategory == null)
+            {
+                throw new KeyNotFoundException($"Category with ID {category.Id} not found.");
+            }
+
+            // Update the existing category's properties
+            existingCategory.Name = category.Name;
+
             await _context.SaveChangesAsync();
         }
 
         public async Task DeleteAsync(int id)
         {
-            var categories = await _context.Categories.FindAsync(id);
-            if (categories != null)
+            if (_context.Categories == null)
             {
-                _context.Categories.Remove(categories);
-                await _context.SaveChangesAsync();
+                throw new InvalidOperationException("Categories table is not available.");
             }
+
+            var category = await _context.Categories.FindAsync(id);
+
+            if (category == null)
+            {
+                throw new KeyNotFoundException($"Category with ID {id} not found.");
+            }
+
+            _context.Categories.Remove(category);
+            await _context.SaveChangesAsync();
         }
     }
 }

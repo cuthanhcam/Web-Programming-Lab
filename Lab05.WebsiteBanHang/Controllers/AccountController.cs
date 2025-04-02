@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Lab05.WebsiteBanHang.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 
 namespace Lab05.WebsiteBanHang.Controllers
 {
@@ -38,12 +38,14 @@ namespace Lab05.WebsiteBanHang.Controllers
         {
             if (ModelState.IsValid)
             {
+                // Kiểm tra tuổi
                 if (model.Age.HasValue && (model.Age.Value < 17 || model.Age.Value > 100))
                 {
                     ModelState.AddModelError("Age", "Tuổi phải từ 17 đến 100");
                     return View(model);
                 }
 
+                // Kiểm tra email đã tồn tại
                 var existingUser = await _userManager.FindByEmailAsync(model.Email);
                 if (existingUser != null)
                 {
@@ -51,27 +53,63 @@ namespace Lab05.WebsiteBanHang.Controllers
                     return View(model);
                 }
 
+                // Tạo user mới
                 var user = new ApplicationUser
                 {
                     UserName = model.Email,
                     Email = model.Email,
                     FullName = model.FullName,
                     Address = model.Address,
-                    Age = model.Age
+                    Age = model.Age,
+                    EmailConfirmed = true // Để không cần xác nhận email
                 };
 
                 var result = await _userManager.CreateAsync(user, model.Password);
 
                 if (result.Succeeded)
                 {
+                    // Đảm bảo vai trò Customer tồn tại
+                    if (!await _roleManager.RoleExistsAsync(SD.Role_Customer))
+                    {
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Customer));
+                    }
+
+                    // Thêm role Customer cho user mới
                     await _userManager.AddToRoleAsync(user, SD.Role_Customer);
+
+                    // Đăng nhập tự động sau khi đăng ký thành công
                     await _signInManager.SignInAsync(user, isPersistent: false);
+                    TempData["SuccessMessage"] = "Đăng ký tài khoản thành công!";
                     return RedirectToAction("Index", "Home");
                 }
 
+                // Xử lý các lỗi từ Identity
                 foreach (var error in result.Errors)
                 {
-                    ModelState.AddModelError(string.Empty, error.Description);
+                    if (error.Code == "DuplicateUserName")
+                    {
+                        ModelState.AddModelError("Email", "Email đã được sử dụng.");
+                    }
+                    else if (error.Code == "PasswordRequiresDigit")
+                    {
+                        ModelState.AddModelError("Password", "Mật khẩu phải chứa ít nhất một chữ số.");
+                    }
+                    else if (error.Code == "PasswordRequiresLower")
+                    {
+                        ModelState.AddModelError("Password", "Mật khẩu phải chứa ít nhất một chữ thường.");
+                    }
+                    else if (error.Code == "PasswordRequiresUpper")
+                    {
+                        ModelState.AddModelError("Password", "Mật khẩu phải chứa ít nhất một chữ hoa.");
+                    }
+                    else if (error.Code == "PasswordRequiresNonAlphanumeric")
+                    {
+                        ModelState.AddModelError("Password", "Mật khẩu phải chứa ít nhất một ký tự đặc biệt.");
+                    }
+                    else
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
                 }
             }
 
@@ -101,9 +139,20 @@ namespace Lab05.WebsiteBanHang.Controllers
                     return View(model);
                 }
 
-                var result = await _signInManager.PasswordSignInAsync(user.UserName, model.Password, model.RememberMe, lockoutOnFailure: false);
+                if (await _userManager.IsLockedOutAsync(user))
+                {
+                    ModelState.AddModelError(string.Empty, "Tài khoản của bạn đã bị khóa.");
+                    return View(model);
+                }
+
+                var result = await _signInManager.PasswordSignInAsync(user.UserName, model.Password, model.RememberMe, lockoutOnFailure: true);
                 if (result.Succeeded)
                 {
+                    // Kiểm tra vai trò sau khi đăng nhập thành công
+                    if (await _userManager.IsInRoleAsync(user, SD.Role_Admin))
+                    {
+                        return RedirectToAction("Index", "User");
+                    }
                     return RedirectToLocal(returnUrl);
                 }
                 else
@@ -130,6 +179,16 @@ namespace Lab05.WebsiteBanHang.Controllers
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return NotFound();
+
+            // Chọn layout dựa trên vai trò
+            if (await _userManager.IsInRoleAsync(user, SD.Role_Admin))
+            {
+                ViewData["Layout"] = "~/Views/Shared/_AdminLayout.cshtml";
+            }
+            else
+            {
+                ViewData["Layout"] = "~/Views/Shared/_Layout.cshtml";
+            }
 
             var model = new ManageViewModel
             {

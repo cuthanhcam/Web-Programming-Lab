@@ -15,5 +15,9 @@ namespace Lab05.WebsiteBanHang.Controllers
         {
             return View();
         }
+        // protected IActionResult AccssDenied()
+        // {
+        //     return View("~/Views/Shared/AccessDenied.cshtml");
+        // }
     }
 }

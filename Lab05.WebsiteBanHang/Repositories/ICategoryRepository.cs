@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Lab05.WebsiteBanHang.Models;
 
-namespace Lab05.WebsiteBanHang.Interfaces
+namespace Lab05.WebsiteBanHang.Repositories
 {
     public interface ICategoryRepository
     {

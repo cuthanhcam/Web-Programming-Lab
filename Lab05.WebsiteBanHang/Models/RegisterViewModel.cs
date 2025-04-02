@@ -1,4 +1,8 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Lab05.WebsiteBanHang.Models
 {
@@ -31,4 +35,4 @@ namespace Lab05.WebsiteBanHang.Models
         [Display(Name = "Tuổi")]
         public int? Age { get; set; }
     }
-} 
+}

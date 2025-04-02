@@ -1,20 +1,21 @@
 using Lab05.WebsiteBanHang.Data;
-using Lab05.WebsiteBanHang.Interfaces;
-using Lab05.WebsiteBanHang.Repositories;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
 using Lab05.WebsiteBanHang.Models;
+using Lab05.WebsiteBanHang.Repositories;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
+// Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<ICategoryRepository, EFCategoryRepository>();
+// Add repositories, services, and other dependencies, use AddScoped for DI lifetime
 builder.Services.AddScoped<IProductRepository, EFProductRepository>();
-
+builder.Services.AddScoped<ICategoryRepository, EFCategoryRepository>();
+builder.Services.AddScoped<IOrderRepository, EFOrderRepository>();
+builder.Services.AddScoped<ICartRepository, EFCartRepository>();
 // Thêm Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -38,14 +39,19 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
 });
 
+// Sử dụng bảng thay cho lưu vào bộ nhớ cache phân tán
+// // Thêm dịch vụ Session
+// builder.Services.AddDistributedMemoryCache(); // Sử dụng bộ nhớ cache phân tán
+// builder.Services.AddSession(options =>
+// {
+//     options.IdleTimeout = TimeSpan.FromMinutes(30); // Thời gian timeout của session
+//     options.Cookie.HttpOnly = true;
+//     options.Cookie.IsEssential = true; // Đảm bảo cookie session là cần thiết
+// });
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseDeveloperExceptionPage();
-}
-else
+if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
@@ -62,13 +68,13 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// Seed Database
+// Seed database with initial data
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
-        await DbInitializer.Initialize(services);
+        await SeedData.Initialize(services);
     }
     catch (Exception ex)
     {

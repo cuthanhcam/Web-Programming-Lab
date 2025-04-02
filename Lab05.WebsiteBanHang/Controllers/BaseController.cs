@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using Lab05.WebsiteBanHang.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace Lab05.WebsiteBanHang.Controllers
 {
@@ -8,13 +9,25 @@ namespace Lab05.WebsiteBanHang.Controllers
     public abstract class BaseController : Controller
     {
         protected bool IsAdmin => User.IsInRole(SD.Role_Admin);
-        protected bool IsCompany => User.IsInRole(SD.Role_Company);
-        protected bool IsCustomer => User.IsInRole(SD.Role_Customer);
         protected bool IsEmployee => User.IsInRole(SD.Role_Employee);
+        protected bool IsCustomer => User.IsInRole(SD.Role_Customer);
+
+        public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            base.OnActionExecuting(context);
+            if (IsAdmin)
+            {
+                ViewData["Layout"] = "~/Views/Shared/_AdminLayout.cshtml";
+            }
+            else
+            {
+                ViewData["Layout"] = "~/Views/Shared/_Layout.cshtml";
+            }
+        }
 
         protected IActionResult AccessDenied()
         {
             return View("~/Views/Shared/AccessDenied.cshtml");
         }
     }
-} 
+}

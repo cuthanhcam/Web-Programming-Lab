@@ -1,19 +1,17 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Lab05.WebsiteBanHang.Interfaces;
 using Lab05.WebsiteBanHang.Models;
+using Lab05.WebsiteBanHang.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace Lab05.WebsiteBanHang.Controllers
 {
-    [Authorize]
-    public class ProductController : Controller
+    public class ProductController : BaseController
     {
         private readonly IProductRepository _productRepository;
         private readonly ICategoryRepository _categoryRepository;
@@ -24,15 +22,21 @@ namespace Lab05.WebsiteBanHang.Controllers
             _categoryRepository = categoryRepository;
         }
 
-        // GET: Product/Index (Danh sách sản phẩm - ai cũng xem được)
         [AllowAnonymous]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string searchString, int? categoryId, string sortOrder)
         {
-            var products = await _productRepository.GetAllAsync();
+            var products = await _productRepository.GetFilteredProductsAsync(searchString, categoryId, sortOrder);
+
+            var categories = await _categoryRepository.GetAllAsync();
+            ViewData["Categories"] = new SelectList(categories, "Id", "Name");
+            ViewData["CurrentSearch"] = searchString;
+            ViewData["CurrentCategory"] = categoryId;
+            ViewData["CurrentSort"] = sortOrder;
+
             return View(products);
         }
-
-        // GET: Product/Details/{id} (Chi tiết sản phẩm - cần đăng nhập)
+        
+        // GET: Product/Details/{id}
         [Authorize]
         public async Task<IActionResult> Details(int? id)
         {
@@ -42,8 +46,8 @@ namespace Lab05.WebsiteBanHang.Controllers
             return View(product);
         }
 
-        // GET: Product/Create (Thêm sản phẩm - Admin, Company, Employee)
-        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Company + "," + SD.Role_Employee)]
+        // GET: Product/Create
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         public async Task<IActionResult> Create()
         {
             var categories = await _categoryRepository.GetAllAsync();
@@ -54,13 +58,25 @@ namespace Lab05.WebsiteBanHang.Controllers
         // POST: Product/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Company + "," + SD.Role_Employee)]
+        [Authorize(Roles = SD.Role_Admin + "," + "," + SD.Role_Employee)]
         public async Task<IActionResult> Create([Bind("Name,Description,Price,CategoryId")] Product product, List<IFormFile> images)
         {
             if (ModelState.IsValid)
             {
                 try
                 {
+                    // Kiểm tra trùng lặp tên sản phẩm
+                    var existingProduct = (await _productRepository.GetAllAsync())
+                        .FirstOrDefault(p => p.Name.Equals(product.Name, StringComparison.OrdinalIgnoreCase));
+
+                    if (existingProduct != null)
+                    {
+                        ModelState.AddModelError("Name", "Tên sản phẩm đã tồn tại.");
+                        var categoryList = await _categoryRepository.GetAllAsync();
+                        ViewData["CategoryId"] = new SelectList(categoryList, "Id", "Name", product.CategoryId);
+                        return View(product);
+                    }
+
                     await _productRepository.AddAsync(product);
                     if (images != null && images.Any())
                     {
@@ -88,8 +104,8 @@ namespace Lab05.WebsiteBanHang.Controllers
             return View(product);
         }
 
-        // GET: Product/Edit/{id} (Sửa sản phẩm - Admin, Company, Employee)
-        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Company + "," + SD.Role_Employee)]
+        // GET: Product/Edit/{id}
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
@@ -103,7 +119,7 @@ namespace Lab05.WebsiteBanHang.Controllers
         // POST: Product/Edit/{id}
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Company + "," + SD.Role_Employee)]
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Description,Price,CategoryId")] Product product, List<IFormFile> images, List<int> deleteImages)
         {
             if (id != product.Id) return NotFound();
@@ -113,6 +129,18 @@ namespace Lab05.WebsiteBanHang.Controllers
                 {
                     var existingProduct = await _productRepository.GetByIdAsync(id);
                     if (existingProduct == null) return NotFound();
+
+                    // Kiểm tra trùng lặp tên sản phẩm (trừ sản phẩm hiện tại)
+                    var existingProductName = (await _productRepository.GetAllAsync())
+                        .FirstOrDefault(p => p.Name.Equals(product.Name, StringComparison.OrdinalIgnoreCase) && p.Id != product.Id);
+
+                    if (existingProductName != null)
+                    {
+                        ModelState.AddModelError("Name", "Tên sản phẩm đã tồn tại.");
+                        var categoryList = await _categoryRepository.GetAllAsync();
+                        ViewData["CategoryId"] = new SelectList(categoryList, "Id", "Name", product.CategoryId);
+                        return View(product);
+                    }
 
                     existingProduct.Name = product.Name;
                     existingProduct.Price = product.Price;
@@ -159,8 +187,8 @@ namespace Lab05.WebsiteBanHang.Controllers
             return View(product);
         }
 
-        // GET: Product/Delete/{id} (Xóa sản phẩm - Admin, Company, Employee)
-        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Company + "," + SD.Role_Employee)]
+        // GET: Product/Delete/{id}
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
@@ -172,7 +200,7 @@ namespace Lab05.WebsiteBanHang.Controllers
         // POST: Product/Delete/{id}
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Company + "," + SD.Role_Employee)]
+        [Authorize(Roles = SD.Role_Admin + "," + SD.Role_Employee)]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             await _productRepository.DeleteAsync(id);

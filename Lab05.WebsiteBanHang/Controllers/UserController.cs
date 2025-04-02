@@ -1,16 +1,17 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Lab05.WebsiteBanHang.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using Lab05.WebsiteBanHang.Models;
-using System.Threading.Tasks;
-using System.Linq;
-using System.Collections.Generic;
 
 namespace Lab05.WebsiteBanHang.Controllers
 {
     [Authorize(Roles = SD.Role_Admin)]
-    public class UserController : Controller
+    public class UserController : BaseController
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
@@ -26,8 +27,14 @@ namespace Lab05.WebsiteBanHang.Controllers
         // GET: User/Index
         public async Task<IActionResult> Index()
         {
+            ViewData["Layout"] = "~/Views/Shared/_AdminLayout.cshtml";
             var users = await _userManager.Users.ToListAsync();
             var userRoles = new List<UserRoleViewModel>();
+
+            // Lấy thông tin người dùng hiện tại
+            var currentUser = await _userManager.GetUserAsync(User);
+            var isCurrentUserAdmin = await _userManager.IsInRoleAsync(currentUser, SD.Role_Admin);
+            ViewBag.CurrentUserId = currentUser.Id;
 
             foreach (var user in users)
             {
@@ -38,7 +45,10 @@ namespace Lab05.WebsiteBanHang.Controllers
                     UserName = user.UserName,
                     FullName = user.FullName,
                     Email = user.Email,
-                    Roles = roles.ToList()
+                    Address = user.Address,
+                    Age = user.Age,
+                    Roles = roles.ToList(),
+                    IsCurrentUserAdmin = isCurrentUserAdmin
                 });
             }
 
@@ -80,6 +90,12 @@ namespace Lab05.WebsiteBanHang.Controllers
 
                 if (result.Succeeded)
                 {
+                    // Đảm bảo vai trò Customer tồn tại
+                    if (!await _roleManager.RoleExistsAsync(SD.Role_Customer))
+                    {
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Customer));
+                    }
+
                     await _userManager.AddToRoleAsync(user, SD.Role_Customer);
                     TempData["SuccessMessage"] = "Thêm người dùng thành công!";
                     return RedirectToAction(nameof(Index));
@@ -104,6 +120,14 @@ namespace Lab05.WebsiteBanHang.Controllers
             var userRoles = await _userManager.GetRolesAsync(user);
             var allRoles = await _roleManager.Roles.ToListAsync();
 
+            // Kiểm tra xem user đang sửa có phải là admin không
+            var isTargetUserAdmin = userRoles.Contains(SD.Role_Admin);
+
+            // Kiểm tra xem user hiện tại có phải là admin không
+            var currentUser = await _userManager.GetUserAsync(User);
+            var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+            var isCurrentUserAdmin = currentUserRoles.Contains(SD.Role_Admin);
+
             var model = new UserRoleViewModel
             {
                 UserId = user.Id,
@@ -113,7 +137,9 @@ namespace Lab05.WebsiteBanHang.Controllers
                 Address = user.Address,
                 Age = user.Age,
                 Roles = userRoles.ToList(),
-                AvailableRoles = allRoles.Select(r => r.Name).ToList()
+                AvailableRoles = allRoles.Select(r => r.Name).ToList(),
+                IsTargetUserAdmin = isTargetUserAdmin,
+                IsCurrentUserAdmin = isCurrentUserAdmin
             };
 
             return View(model);
@@ -128,6 +154,34 @@ namespace Lab05.WebsiteBanHang.Controllers
             {
                 var user = await _userManager.FindByIdAsync(model.UserId);
                 if (user == null) return NotFound();
+
+                // Kiểm tra trùng lặp email (trừ người dùng hiện tại)
+                var existingUser = await _userManager.FindByEmailAsync(model.Email);
+                if (existingUser != null && existingUser.Id != model.UserId)
+                {
+                    ModelState.AddModelError("Email", "Email đã được sử dụng.");
+                    var availableRoles = await _roleManager.Roles.ToListAsync();
+                    model.AvailableRoles = availableRoles.Select(r => r.Name).ToList();
+                    return View(model);
+                }
+
+                // Kiểm tra xem user hiện tại có phải là admin không
+                var currentUser = await _userManager.GetUserAsync(User);
+                var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+                var isCurrentUserAdmin = currentUserRoles.Contains(SD.Role_Admin);
+
+                // Kiểm tra xem user đang sửa có phải là admin không
+                var targetUserRoles = await _userManager.GetRolesAsync(user);
+                var isTargetUserAdmin = targetUserRoles.Contains(SD.Role_Admin);
+
+                // Nếu user đang sửa là admin và user hiện tại không phải admin, không cho phép sửa
+                if (isTargetUserAdmin && !isCurrentUserAdmin)
+                {
+                    ModelState.AddModelError("", "Bạn không có quyền sửa thông tin admin.");
+                    var availableRoles = await _roleManager.Roles.ToListAsync();
+                    model.AvailableRoles = availableRoles.Select(r => r.Name).ToList();
+                    return View(model);
+                }
 
                 // Cập nhật thông tin người dùng
                 user.FullName = model.FullName;
@@ -146,10 +200,15 @@ namespace Lab05.WebsiteBanHang.Controllers
                     return View(model);
                 }
 
-                // Cập nhật vai trò
+                // Cập nhật vai trò - chỉ cho phép 1 role
                 var currentRoles = await _userManager.GetRolesAsync(user);
                 await _userManager.RemoveFromRolesAsync(user, currentRoles);
-                await _userManager.AddToRolesAsync(user, model.Roles);
+                
+                // Chỉ thêm role đầu tiên được chọn
+                if (model.Roles.Any())
+                {
+                    await _userManager.AddToRoleAsync(user, model.Roles.First());
+                }
 
                 TempData["SuccessMessage"] = "Cập nhật thông tin và quyền thành công!";
                 return RedirectToAction(nameof(Index));
@@ -183,21 +242,42 @@ namespace Lab05.WebsiteBanHang.Controllers
         }
 
         // POST: User/Delete/{id}
-        [HttpPost, ActionName("Delete")]
+        [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(string id)
         {
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound();
+            }
+
             var user = await _userManager.FindByIdAsync(id);
-            if (user == null) return NotFound();
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            // Kiểm tra xem người dùng cần xóa có phải là admin không
+            var isTargetUserAdmin = await _userManager.IsInRoleAsync(user, SD.Role_Admin);
+            if (isTargetUserAdmin)
+            {
+                // Lấy thông tin người dùng hiện tại
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser.Id != user.Id) // Nếu không phải chính mình
+                {
+                    TempData["Error"] = "Không thể xóa tài khoản Admin khác.";
+                    return RedirectToAction(nameof(Index));
+                }
+            }
 
             var result = await _userManager.DeleteAsync(user);
             if (result.Succeeded)
             {
-                TempData["SuccessMessage"] = "Xóa người dùng thành công!";
+                TempData["Success"] = "Xóa người dùng thành công.";
             }
             else
             {
-                TempData["ErrorMessage"] = "Có lỗi xảy ra khi xóa người dùng.";
+                TempData["Error"] = "Có lỗi xảy ra khi xóa người dùng.";
             }
 
             return RedirectToAction(nameof(Index));

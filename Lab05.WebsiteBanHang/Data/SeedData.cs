@@ -1,12 +1,13 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Lab05.WebsiteBanHang.Models;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Threading.Tasks;
 
 namespace Lab05.WebsiteBanHang.Data
 {
-    public static class DbInitializer
+    public static class SeedData
     {
         public static async Task Initialize(IServiceProvider serviceProvider)
         {
@@ -14,7 +15,7 @@ namespace Lab05.WebsiteBanHang.Data
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
             // Seed Roles
-            string[] roles = { SD.Role_Admin, SD.Role_Company, SD.Role_Employee, SD.Role_Customer };
+            string[] roles = { SD.Role_Admin, SD.Role_Employee, SD.Role_Customer };
             foreach (var role in roles)
             {
                 if (!await roleManager.RoleExistsAsync(role))
@@ -50,28 +51,6 @@ namespace Lab05.WebsiteBanHang.Data
                     {
                         Console.WriteLine($"Error creating admin user: {error.Description}");
                     }
-                }
-            }
-
-            // Seed Company User (Tùy chọn)
-            var companyEmail = "company@example.com";
-            var companyUser = await userManager.FindByEmailAsync(companyEmail);
-            if (companyUser == null)
-            {
-                companyUser = new ApplicationUser
-                {
-                    UserName = companyEmail,
-                    Email = companyEmail,
-                    FullName = "Company User",
-                    Address = "456 Company Road, Business City",
-                    Age = 35,
-                    EmailConfirmed = true
-                };
-
-                var result = await userManager.CreateAsync(companyUser, "Company123!");
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(companyUser, SD.Role_Company);
                 }
             }
 
