@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Lab04.WebsiteBanhang.Migrations
+namespace Lab04.WebsiteBanHang.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
     [Migration("20250320153412_InitialCreate")]

@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace Lab04.WebsiteBanhang.Migrations
+namespace Lab04.WebsiteBanHang.Migrations
 {
     /// <inheritdoc />
     public partial class UpdateCategoryConstraint : Migration

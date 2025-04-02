@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Lab04.WebsiteBanhang.Controllers
+namespace Lab04.WebsiteBanHang.Controllers
 {
     public class SharedController : Controller
     {

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Lab04.WebsiteBanhang.Migrations
+namespace Lab04.WebsiteBanHang.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration

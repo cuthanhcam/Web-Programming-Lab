@@ -1,4 +1,4 @@
-namespace Lab04.WebsiteBanhang.Models;
+namespace Lab04.WebsiteBanHang.Models;
 
 public class ErrorViewModel
 {
