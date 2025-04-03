@@ -24,14 +24,14 @@ namespace Lab05.WebsiteBanHang.Controllers
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return NotFound();
 
-            // Nếu là Admin hoặc Employee, hiển thị tất cả đơn hàng
-            if (IsAdmin || IsEmployee)
+            // Chỉ Admin được xem tất cả đơn hàng
+            if (IsAdmin)
             {
                 var allOrders = await _orderRepository.GetAllAsync();
-                return View("AdminIndex", allOrders); // Sử dụng view tương tự OrderManagement/Index
+                return View("AdminIndex", allOrders);
             }
 
-            // Nếu là Customer, chỉ hiển thị đơn hàng của họ
+            // Nếu là Customer hoặc Employee, chỉ hiển thị đơn hàng của họ (hoặc không hiển thị gì cho Employee nếu muốn)
             var orders = await _orderRepository.GetOrdersByUserIdAsync(user.Id);
             return View(orders);
         }
